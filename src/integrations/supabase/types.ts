@@ -14,7 +14,213 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      agents: {
+        Row: {
+          created_at: string | null
+          current_task: string | null
+          id: string
+          last_activity: string | null
+          name: string
+          role: string
+          status: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          current_task?: string | null
+          id?: string
+          last_activity?: string | null
+          name: string
+          role: string
+          status?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          current_task?: string | null
+          id?: string
+          last_activity?: string | null
+          name?: string
+          role?: string
+          status?: string | null
+        }
+        Relationships: []
+      }
+      approvals: {
+        Row: {
+          approval_type: string | null
+          approved_by: string | null
+          created_at: string | null
+          email_queue_id: string | null
+          id: string
+          request_body: string | null
+          status: string | null
+        }
+        Insert: {
+          approval_type?: string | null
+          approved_by?: string | null
+          created_at?: string | null
+          email_queue_id?: string | null
+          id?: string
+          request_body?: string | null
+          status?: string | null
+        }
+        Update: {
+          approval_type?: string | null
+          approved_by?: string | null
+          created_at?: string | null
+          email_queue_id?: string | null
+          id?: string
+          request_body?: string | null
+          status?: string | null
+        }
+        Relationships: []
+      }
+      audit_log: {
+        Row: {
+          action: string | null
+          agent: string | null
+          details: Json | null
+          error_message: string | null
+          executed_at: string | null
+          id: string
+          status: string | null
+        }
+        Insert: {
+          action?: string | null
+          agent?: string | null
+          details?: Json | null
+          error_message?: string | null
+          executed_at?: string | null
+          id?: string
+          status?: string | null
+        }
+        Update: {
+          action?: string | null
+          agent?: string | null
+          details?: Json | null
+          error_message?: string | null
+          executed_at?: string | null
+          id?: string
+          status?: string | null
+        }
+        Relationships: []
+      }
+      clients: {
+        Row: {
+          email_addresses: string[] | null
+          id: string
+          name: string
+          project_name: string | null
+          slug: string
+        }
+        Insert: {
+          email_addresses?: string[] | null
+          id?: string
+          name: string
+          project_name?: string | null
+          slug: string
+        }
+        Update: {
+          email_addresses?: string[] | null
+          id?: string
+          name?: string
+          project_name?: string | null
+          slug?: string
+        }
+        Relationships: []
+      }
+      email_queue: {
+        Row: {
+          analysis: Json | null
+          body: string | null
+          client: string | null
+          created_at: string | null
+          from_email: string
+          id: string
+          requires_approval: boolean | null
+          status: string | null
+          subject: string
+          to_email: string
+        }
+        Insert: {
+          analysis?: Json | null
+          body?: string | null
+          client?: string | null
+          created_at?: string | null
+          from_email: string
+          id?: string
+          requires_approval?: boolean | null
+          status?: string | null
+          subject: string
+          to_email: string
+        }
+        Update: {
+          analysis?: Json | null
+          body?: string | null
+          client?: string | null
+          created_at?: string | null
+          from_email?: string
+          id?: string
+          requires_approval?: boolean | null
+          status?: string | null
+          subject?: string
+          to_email?: string
+        }
+        Relationships: []
+      }
+      kill_switch: {
+        Row: {
+          id: string
+          reason: string | null
+          status: string | null
+          triggered_at: string | null
+          triggered_by: string | null
+        }
+        Insert: {
+          id: string
+          reason?: string | null
+          status?: string | null
+          triggered_at?: string | null
+          triggered_by?: string | null
+        }
+        Update: {
+          id?: string
+          reason?: string | null
+          status?: string | null
+          triggered_at?: string | null
+          triggered_by?: string | null
+        }
+        Relationships: []
+      }
+      task_queue: {
+        Row: {
+          agent: string | null
+          created_at: string | null
+          id: string
+          payload: Json | null
+          result: Json | null
+          status: string | null
+          task_type: string | null
+        }
+        Insert: {
+          agent?: string | null
+          created_at?: string | null
+          id?: string
+          payload?: Json | null
+          result?: Json | null
+          status?: string | null
+          task_type?: string | null
+        }
+        Update: {
+          agent?: string | null
+          created_at?: string | null
+          id?: string
+          payload?: Json | null
+          result?: Json | null
+          status?: string | null
+          task_type?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
