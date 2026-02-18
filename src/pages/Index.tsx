@@ -1,6 +1,8 @@
 import { AgentCard } from "@/components/dashboard/AgentCard";
 import { ActivityFeed } from "@/components/dashboard/ActivityFeed";
 import { SystemStats } from "@/components/dashboard/SystemStats";
+import { EmailQueue } from "@/components/EmailQueue";
+import { KillSwitch } from "@/components/KillSwitch";
 
 const agents = [
   {
@@ -55,6 +57,15 @@ const Index = () => {
           {agents.map((agent) => (
             <AgentCard key={agent.name} {...agent} />
           ))}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2">
+          <EmailQueue />
+        </div>
+        <div className="lg:col-span-1">
+          <KillSwitch />
         </div>
       </div>
 
