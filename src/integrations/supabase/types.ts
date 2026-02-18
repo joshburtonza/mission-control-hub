@@ -18,59 +18,77 @@ export type Database = {
         Row: {
           created_at: string | null
           current_task: string | null
+          health_check: boolean | null
           id: string
           last_activity: string | null
           name: string
           role: string
           status: string | null
+          updated_at: string | null
         }
         Insert: {
           created_at?: string | null
           current_task?: string | null
+          health_check?: boolean | null
           id?: string
           last_activity?: string | null
           name: string
           role: string
           status?: string | null
+          updated_at?: string | null
         }
         Update: {
           created_at?: string | null
           current_task?: string | null
+          health_check?: boolean | null
           id?: string
           last_activity?: string | null
           name?: string
           role?: string
           status?: string | null
+          updated_at?: string | null
         }
         Relationships: []
       }
       approvals: {
         Row: {
           approval_type: string | null
+          approved_at: string | null
           approved_by: string | null
           created_at: string | null
           email_queue_id: string | null
           id: string
+          notes: string | null
           request_body: string | null
+          requested_at: string | null
           status: string | null
+          updated_at: string | null
         }
         Insert: {
           approval_type?: string | null
+          approved_at?: string | null
           approved_by?: string | null
           created_at?: string | null
           email_queue_id?: string | null
           id?: string
+          notes?: string | null
           request_body?: string | null
+          requested_at?: string | null
           status?: string | null
+          updated_at?: string | null
         }
         Update: {
           approval_type?: string | null
+          approved_at?: string | null
           approved_by?: string | null
           created_at?: string | null
           email_queue_id?: string | null
           id?: string
+          notes?: string | null
           request_body?: string | null
+          requested_at?: string | null
           status?: string | null
+          updated_at?: string | null
         }
         Relationships: []
       }
@@ -78,7 +96,9 @@ export type Database = {
         Row: {
           action: string | null
           agent: string | null
+          created_at: string | null
           details: Json | null
+          duration_ms: number | null
           error_message: string | null
           executed_at: string | null
           id: string
@@ -87,7 +107,9 @@ export type Database = {
         Insert: {
           action?: string | null
           agent?: string | null
+          created_at?: string | null
           details?: Json | null
+          duration_ms?: number | null
           error_message?: string | null
           executed_at?: string | null
           id?: string
@@ -96,7 +118,9 @@ export type Database = {
         Update: {
           action?: string | null
           agent?: string | null
+          created_at?: string | null
           details?: Json | null
+          duration_ms?: number | null
           error_message?: string | null
           executed_at?: string | null
           id?: string
@@ -106,25 +130,40 @@ export type Database = {
       }
       clients: {
         Row: {
+          contact_person: string | null
+          created_at: string | null
           email_addresses: string[] | null
           id: string
           name: string
+          notes: string | null
           project_name: string | null
           slug: string
+          status: string | null
+          updated_at: string | null
         }
         Insert: {
+          contact_person?: string | null
+          created_at?: string | null
           email_addresses?: string[] | null
           id?: string
           name: string
+          notes?: string | null
           project_name?: string | null
           slug: string
+          status?: string | null
+          updated_at?: string | null
         }
         Update: {
+          contact_person?: string | null
+          created_at?: string | null
           email_addresses?: string[] | null
           id?: string
           name?: string
+          notes?: string | null
           project_name?: string | null
           slug?: string
+          status?: string | null
+          updated_at?: string | null
         }
         Relationships: []
       }
@@ -136,10 +175,13 @@ export type Database = {
           created_at: string | null
           from_email: string
           id: string
+          priority: number | null
+          received_at: string | null
           requires_approval: boolean | null
           status: string | null
           subject: string
           to_email: string
+          updated_at: string | null
         }
         Insert: {
           analysis?: Json | null
@@ -148,10 +190,13 @@ export type Database = {
           created_at?: string | null
           from_email: string
           id?: string
+          priority?: number | null
+          received_at?: string | null
           requires_approval?: boolean | null
           status?: string | null
           subject: string
           to_email: string
+          updated_at?: string | null
         }
         Update: {
           analysis?: Json | null
@@ -160,10 +205,13 @@ export type Database = {
           created_at?: string | null
           from_email?: string
           id?: string
+          priority?: number | null
+          received_at?: string | null
           requires_approval?: boolean | null
           status?: string | null
           subject?: string
           to_email?: string
+          updated_at?: string | null
         }
         Relationships: []
       }
@@ -191,33 +239,69 @@ export type Database = {
         }
         Relationships: []
       }
+      system_config: {
+        Row: {
+          created_at: string | null
+          id: string
+          key: string
+          updated_at: string | null
+          value: Json | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          key: string
+          updated_at?: string | null
+          value?: Json | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          key?: string
+          updated_at?: string | null
+          value?: Json | null
+        }
+        Relationships: []
+      }
       task_queue: {
         Row: {
           agent: string | null
+          completed_at: string | null
           created_at: string | null
           id: string
           payload: Json | null
           result: Json | null
+          retry_count: number | null
+          started_at: string | null
           status: string | null
           task_type: string | null
+          updated_at: string | null
         }
         Insert: {
           agent?: string | null
+          completed_at?: string | null
           created_at?: string | null
           id?: string
           payload?: Json | null
           result?: Json | null
+          retry_count?: number | null
+          started_at?: string | null
           status?: string | null
           task_type?: string | null
+          updated_at?: string | null
         }
         Update: {
           agent?: string | null
+          completed_at?: string | null
           created_at?: string | null
           id?: string
           payload?: Json | null
           result?: Json | null
+          retry_count?: number | null
+          started_at?: string | null
           status?: string | null
           task_type?: string | null
+          updated_at?: string | null
         }
         Relationships: []
       }
