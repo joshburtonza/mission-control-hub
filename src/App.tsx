@@ -11,6 +11,8 @@ import Finances from "./pages/Finances";
 import CalendarPage from "./pages/CalendarPage";
 import SettingsPage from "./pages/SettingsPage";
 import AuditLog from "./pages/AuditLog";
+import Approvals from "./pages/Approvals";
+import StatusPage from "./pages/StatusPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -24,6 +26,8 @@ const App = () => (
         <DashboardLayout>
           <Routes>
             <Route path="/" element={<Index />} />
+            <Route path="/approvals" element={<Approvals />} />
+            <Route path="/status" element={<StatusPage />} />
             <Route path="/agents" element={<Agents />} />
             <Route path="/tasks" element={<Tasks />} />
             <Route path="/audit" element={<AuditLog />} />

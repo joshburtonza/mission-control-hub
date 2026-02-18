@@ -1,4 +1,4 @@
-import { Bot, LayoutDashboard, ListTodo, DollarSign, Calendar, Settings, ClipboardList } from "lucide-react";
+import { Bot, LayoutDashboard, ListTodo, DollarSign, Calendar, Settings, ClipboardList, AlertTriangle, Activity } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import {
   Sidebar,
@@ -12,13 +12,15 @@ import {
 } from "@/components/ui/sidebar";
 
 const navItems = [
-  { title: "Mission Control", url: "/", icon: LayoutDashboard },
-  { title: "Agents", url: "/agents", icon: Bot },
-  { title: "Tasks", url: "/tasks", icon: ListTodo },
-  { title: "Audit Log", url: "/audit", icon: ClipboardList },
-  { title: "Finances", url: "/finances", icon: DollarSign },
-  { title: "Calendar", url: "/calendar", icon: Calendar },
-  { title: "Settings", url: "/settings", icon: Settings },
+  { title: "Mission Control", url: "/",           icon: LayoutDashboard },
+  { title: "Approvals",       url: "/approvals",  icon: AlertTriangle },
+  { title: "System Status",   url: "/status",     icon: Activity },
+  { title: "Agents",          url: "/agents",     icon: Bot },
+  { title: "Tasks",           url: "/tasks",      icon: ListTodo },
+  { title: "Audit Log",       url: "/audit",      icon: ClipboardList },
+  { title: "Finances",        url: "/finances",   icon: DollarSign },
+  { title: "Calendar",        url: "/calendar",   icon: Calendar },
+  { title: "Settings",        url: "/settings",   icon: Settings },
 ];
 
 export function AppSidebar() {
@@ -29,7 +31,7 @@ export function AppSidebar() {
           OPENCLAW
         </h1>
         <p className="font-mono text-[10px] text-muted-foreground mt-1 tracking-widest uppercase">
-          Mission Control v1.0
+          Mission Control v1.1
         </p>
       </div>
       <SidebarContent>
