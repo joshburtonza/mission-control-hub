@@ -1,4 +1,4 @@
-import { Bot, LayoutDashboard, ListTodo, DollarSign, Calendar, Settings, ClipboardList, AlertTriangle, Activity } from "lucide-react";
+import { Bot, LayoutDashboard, ListTodo, DollarSign, Calendar, Settings, ClipboardList, AlertTriangle, Activity, Bell } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import {
   Sidebar,
@@ -12,9 +12,10 @@ import {
 } from "@/components/ui/sidebar";
 
 const navItems = [
-  { title: "Mission Control", url: "/",           icon: LayoutDashboard },
-  { title: "Approvals",       url: "/approvals",  icon: AlertTriangle },
-  { title: "System Status",   url: "/status",     icon: Activity },
+  { title: "Mission Control", url: "/",               icon: LayoutDashboard },
+  { title: "Notifications",   url: "/notifications",  icon: Bell },
+  { title: "Approvals",       url: "/approvals",      icon: AlertTriangle },
+  { title: "System Status",   url: "/status",         icon: Activity },
   { title: "Agents",          url: "/agents",     icon: Bot },
   { title: "Tasks",           url: "/tasks",      icon: ListTodo },
   { title: "Audit Log",       url: "/audit",      icon: ClipboardList },

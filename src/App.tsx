@@ -13,6 +13,7 @@ import SettingsPage from "./pages/SettingsPage";
 import AuditLog from "./pages/AuditLog";
 import Approvals from "./pages/Approvals";
 import StatusPage from "./pages/StatusPage";
+import NotificationsPage from "./pages/NotificationsPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -27,6 +28,7 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/approvals" element={<Approvals />} />
+            <Route path="/notifications" element={<NotificationsPage />} />
             <Route path="/status" element={<StatusPage />} />
             <Route path="/agents" element={<Agents />} />
             <Route path="/tasks" element={<Tasks />} />
