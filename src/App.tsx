@@ -7,6 +7,7 @@ import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import Index from "./pages/Index";
 import Agents from "./pages/Agents";
 import Tasks from "./pages/Tasks";
+import Content from "./pages/Content";
 import Finances from "./pages/Finances";
 import CalendarPage from "./pages/CalendarPage";
 import SettingsPage from "./pages/SettingsPage";
@@ -32,6 +33,7 @@ const App = () => (
             <Route path="/status" element={<StatusPage />} />
             <Route path="/agents" element={<Agents />} />
             <Route path="/tasks" element={<Tasks />} />
+            <Route path="/content" element={<Content />} />
             <Route path="/audit" element={<AuditLog />} />
             <Route path="/finances" element={<Finances />} />
             <Route path="/calendar" element={<CalendarPage />} />
