@@ -33,12 +33,12 @@ interface DebtEntry {
 // ─── SEED DATA ────────────────────────────────────────────────────────────────
 
 const INITIAL_INCOME: IncomeEntry[] = [
-  { id: '1', client: 'Ascend LC',          project: 'QMS Guard',                  amount: 18000, status: 'paid',         month: '2026-01' },
-  { id: '2', client: 'Favorite Logistics', project: 'FLAIR ERP',                  amount: 22000, status: 'paid',         month: '2026-01' },
-  { id: '3', client: 'Race Technik',       project: 'Detailing Platform',          amount: 15000, status: 'paid',         month: '2026-01' },
-  { id: '4', client: 'Ascend LC',          project: 'QMS Guard',                  amount: 18000, status: 'invoice_sent', month: '2026-02' },
-  { id: '5', client: 'Favorite Logistics', project: 'FLAIR ERP',                  amount: 22000, status: 'pending',      month: '2026-02' },
-  { id: '6', client: 'Race Technik',       project: 'Detailing Platform',          amount: 15000, status: 'pending',      month: '2026-02' },
+  { id: '1', client: 'Ascend LC',          project: 'QMS Guard',       amount: 30000, status: 'paid',         month: '2026-01' },
+  { id: '2', client: 'Favorite Logistics', project: 'FLAIR ERP',       amount: 20000, status: 'paid',         month: '2026-01' },
+  { id: '3', client: 'Race Technik',       project: 'Detailing Platform', amount: 21500, status: 'paid',       month: '2026-01' },
+  { id: '4', client: 'Ascend LC',          project: 'QMS Guard',       amount: 30000, status: 'invoice_sent', month: '2026-02' },
+  { id: '5', client: 'Favorite Logistics', project: 'FLAIR ERP',       amount: 20000, status: 'pending',      month: '2026-02' },
+  { id: '6', client: 'Race Technik',       project: 'Detailing Platform', amount: 21500, status: 'pending',   month: '2026-02' },
 ];
 
 const INITIAL_DEBTS: DebtEntry[] = [
@@ -47,13 +47,14 @@ const INITIAL_DEBTS: DebtEntry[] = [
 ];
 
 const GROWTH_DATA = [
-  { month: 'Oct 25', mrr: 25000, projected: 25000 },
-  { month: 'Nov 25', mrr: 38000, projected: 30000 },
-  { month: 'Dec 25', mrr: 42000, projected: 36000 },
-  { month: 'Jan 26', mrr: 55000, projected: 43200 },
-  { month: 'Feb 26', mrr: 55000, projected: 51840 },
-  { month: 'Mar 26', mrr: null,  projected: 62208 },
-  { month: 'Apr 26', mrr: null,  projected: 74650 },
+  { month: 'Oct 25', mrr: 21500, projected: 21500 },
+  { month: 'Nov 25', mrr: 41500, projected: 25800 },
+  { month: 'Dec 25', mrr: 51500, projected: 30960 },
+  { month: 'Jan 26', mrr: 71500, projected: 37152 },
+  { month: 'Feb 26', mrr: 71500, projected: 44582 },
+  { month: 'Mar 26', mrr: null,  projected: 53498 },
+  { month: 'Apr 26', mrr: null,  projected: 64198 },
+  { month: 'May 26', mrr: null,  projected: 77038 },
 ];
 
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
@@ -104,10 +105,11 @@ export default function Finances() {
 
   // ── Computed ────────────────────────────────────────────────────────────────
 
-  const thisMonth = income.filter(e => e.month === '2026-02');
-  const mrr       = thisMonth.reduce((s, e) => s + e.amount, 0);
-  const collected = thisMonth.filter(e => e.status === 'paid').reduce((s, e) => s + e.amount, 0);
-  const pending   = mrr - collected;
+  const thisMonth  = income.filter(e => e.month === '2026-02');
+  const mrr        = thisMonth.reduce((s, e) => s + e.amount, 0);
+  const collected  = thisMonth.filter(e => e.status === 'paid').reduce((s, e) => s + e.amount, 0);
+  const pending    = mrr - collected;
+  const SURPLUS    = 13000; // Ad hoc buffer after operating costs
 
   const totalDebt     = debts.reduce((s, d) => s + d.total, 0);
   const totalRemaining = debts.reduce((s, d) => s + d.remaining, 0);
@@ -170,9 +172,9 @@ export default function Finances() {
       {/* ── KPI Cards ── */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
-          { label: 'MRR (Feb)',   value: fmt(mrr),       color: 'text-primary',     border: 'border-primary/30' },
-          { label: 'Collected',   value: fmt(collected),  color: 'text-success',     border: 'border-success/30' },
-          { label: 'Outstanding', value: fmt(pending),    color: 'text-warning',     border: 'border-warning/30' },
+          { label: 'MRR',         value: fmt(mrr),           color: 'text-primary',     border: 'border-primary/30' },
+          { label: 'Collected',   value: fmt(collected),      color: 'text-success',     border: 'border-success/30' },
+          { label: 'Ad Hoc Buffer', value: fmt(SURPLUS),     color: 'text-cyan-400',    border: 'border-cyan-700/30' },
           { label: 'Total Debt',  value: fmt(totalRemaining), color: 'text-destructive', border: 'border-destructive/30' },
         ].map(k => (
           <div key={k.label} className={`bg-card border ${k.border} rounded-md p-3`}>
@@ -232,6 +234,20 @@ export default function Finances() {
           >
             <Plus className="h-3 w-3 mr-1" /> Add Entry
           </Button>
+        </div>
+
+        {/* Contract terms */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          {[
+            { client: 'Ascend LC',          color: 'text-cyan-400',   terms: 'R30k pm · 5-7 months · QMS Guard' },
+            { client: 'Race Technik',        color: 'text-orange-400', terms: 'R21.5k pm · Ongoing dev · Detailing Platform' },
+            { client: 'Favorite Logistics',  color: 'text-purple-400', terms: 'R20k pm · Until June 2026 · FLAIR ERP' },
+          ].map(c => (
+            <div key={c.client} className="bg-secondary/20 border border-border/20 rounded px-2.5 py-1.5">
+              <p className={`font-mono text-[9px] font-semibold ${c.color}`}>{c.client}</p>
+              <p className="font-mono text-[9px] text-muted-foreground">{c.terms}</p>
+            </div>
+          ))}
         </div>
 
         {showIncomeForm && (
