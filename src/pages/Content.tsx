@@ -115,7 +115,7 @@ export default function Content() {
         <div>
           <h1 className="font-display text-xl font-bold tracking-wider text-foreground glow-cyan">Content</h1>
           <p className="font-mono text-xs text-muted-foreground mt-1">
-            4 TikToks daily · 2 YouTube per week · Generated at 7am
+            4 TikToks daily · YouTube Mon + Thu · Generated at 7am
           </p>
         </div>
         <Button
