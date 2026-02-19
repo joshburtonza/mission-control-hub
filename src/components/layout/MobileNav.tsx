@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { NavLink } from '@/components/NavLink';
-import { LayoutDashboard, Bell, AlertTriangle, ListTodo, Activity } from 'lucide-react';
+import { LayoutDashboard, Bell, AlertTriangle, ListTodo, Calendar } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 
@@ -38,7 +38,7 @@ export function MobileNav() {
     { to: '/notifications', icon: <Bell className="h-5 w-5" />,          label: 'Alerts',    badge: unreadNotifs },
     { to: '/approvals',   icon: <AlertTriangle className="h-5 w-5" />,  label: 'Approvals', badge: pendingApprovals },
     { to: '/tasks',       icon: <ListTodo className="h-5 w-5" />,        label: 'Tasks',     badge: 0 },
-    { to: '/status',      icon: <Activity className="h-5 w-5" />,        label: 'Status',    badge: 0 },
+    { to: '/calendar',    icon: <Calendar className="h-5 w-5" />,        label: 'Calendar',  badge: 0 },
   ];
 
   return (

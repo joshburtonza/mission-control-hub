@@ -31,9 +31,9 @@ const PRIORITY_COLORS: Record<string, string> = {
 const SCHEDULED_EVENTS = [
   { time: '07:00', label: 'Video Scripts',      agent: 'Video Bot',     recurrence: 'Daily', color: 'text-purple-400' },
   { time: '08:00', label: 'Discord Engagement', agent: 'Alex Claww',    recurrence: 'Daily', color: 'text-cyan-400' },
+  { time: '08:30', label: 'Meeting: Adriaan',    agent: 'Reminder',      recurrence: 'Feb 20', color: 'text-yellow-400' },
   { time: '09:00', label: 'Cold Outreach',       agent: 'Alex Outreach', recurrence: 'Mon-Fri', color: 'text-orange-400' },
-  { time: '09:00', label: 'Repo Sync',           agent: 'Repo Watcher',  recurrence: 'Tuesdays', color: 'text-blue-400' },
-  { time: '11:00', label: 'Blood Test — Dr Zandré Botha', agent: 'Reminder', recurrence: 'Feb 19', color: 'text-red-400' },
+  { time: '09:00', label: 'Repo Sync',           agent: 'Repo Watcher',  recurrence: 'Daily', color: 'text-blue-400' },
   { time: '12:00', label: 'Daily Heartbeat',    agent: 'Heartbeat',     recurrence: 'Daily', color: 'text-green-400' },
   { time: '18:00', label: 'Memory Curation',    agent: 'Memory Bot',    recurrence: 'Sundays', color: 'text-yellow-400' },
 ];
