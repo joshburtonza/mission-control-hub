@@ -69,7 +69,7 @@ export default function StatusPage() {
 
   const fetchAll = async () => {
     const [ksRes, agentRes, logRes] = await Promise.all([
-      supabase.from('kill_switch').select('*').eq('id', 'main').single(),
+      supabase.from('kill_switch').select('*').eq('id', '00000000-0000-0000-0000-000000000001').single(),
       supabase.from('agents').select('*').order('name'),
       supabase.from('audit_log').select('action, executed_at, status').order('executed_at', { ascending: false }).limit(300),
     ]);
