@@ -239,6 +239,92 @@ export type Database = {
         }
         Relationships: []
       }
+      notifications: {
+        Row: {
+          action_url: string | null
+          agent: string | null
+          body: string | null
+          created_at: string | null
+          id: string
+          metadata: Json | null
+          priority: string
+          read_at: string | null
+          status: string
+          title: string
+          type: string
+        }
+        Insert: {
+          action_url?: string | null
+          agent?: string | null
+          body?: string | null
+          created_at?: string | null
+          id?: string
+          metadata?: Json | null
+          priority?: string
+          read_at?: string | null
+          status?: string
+          title: string
+          type?: string
+        }
+        Update: {
+          action_url?: string | null
+          agent?: string | null
+          body?: string | null
+          created_at?: string | null
+          id?: string
+          metadata?: Json | null
+          priority?: string
+          read_at?: string | null
+          status?: string
+          title?: string
+          type?: string
+        }
+        Relationships: []
+      }
+      sophia_csm_config: {
+        Row: {
+          auto_response_enabled: boolean | null
+          cc_emails: string[] | null
+          client_id: string | null
+          created_at: string | null
+          escalation_keywords: string[] | null
+          id: string
+          response_time_max: number | null
+          response_time_min: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          auto_response_enabled?: boolean | null
+          cc_emails?: string[] | null
+          client_id?: string | null
+          created_at?: string | null
+          escalation_keywords?: string[] | null
+          id?: string
+          response_time_max?: number | null
+          response_time_min?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          auto_response_enabled?: boolean | null
+          cc_emails?: string[] | null
+          client_id?: string | null
+          created_at?: string | null
+          escalation_keywords?: string[] | null
+          id?: string
+          response_time_max?: number | null
+          response_time_min?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sophia_csm_config_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       system_config: {
         Row: {
           created_at: string | null
@@ -301,6 +387,54 @@ export type Database = {
           started_at?: string | null
           status?: string | null
           task_type?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      tasks: {
+        Row: {
+          assigned_to: string | null
+          completed_at: string | null
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          due_date: string | null
+          id: string
+          metadata: Json | null
+          priority: string
+          status: string
+          tags: string[] | null
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          assigned_to?: string | null
+          completed_at?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          metadata?: Json | null
+          priority?: string
+          status?: string
+          tags?: string[] | null
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          assigned_to?: string | null
+          completed_at?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          metadata?: Json | null
+          priority?: string
+          status?: string
+          tags?: string[] | null
+          title?: string
           updated_at?: string | null
         }
         Relationships: []
