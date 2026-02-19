@@ -17,74 +17,58 @@ interface Script {
 const TODAY_SCRIPTS: Script[] = [
   {
     id: '1',
-    title: 'How We Cut Client Email Response Time From 2 Hours to 90 Seconds',
-    platform: 'youtube',
-    body: `Most agencies are still manually reading every email and typing responses from scratch.
+    title: 'We Built a Command Centre for Our Agency in 72 Hours',
+    platform: 'tiktok',
+    body: `Kill switch on the wall. Live agent status. Email queue with one-click approvals. Debt tracker. Income graphs.
 
-We built an AI agent called Sophia that reads incoming client emails, drafts a response in under 5 seconds, and sends it after a human spot-check.
+All of it live in 72 hours.
 
-Here is exactly how we did it and why it matters for your agency in 2026.
+This is Mission Control. Built with Lovable, Supabase, and Claude Code. Running 24/7 on a MacBook Air.
 
-The system runs 24/7 on a Mac. No cloud server. No API costs beyond the subscription. Sophia checks every 5 minutes, analyzes the email, drafts a response in SA English — no dashes, no corporate robot speak — and queues it for approval.
-
-One click. Sent. Client thinks you are on it within minutes. You barely lifted a finger.
-
-This is what agency automation actually looks like.`,
+Drop a follow — full build breakdown coming this week.`,
     generatedAt: '2026-02-19T07:00:00Z',
   },
   {
     id: '2',
-    title: '3 Signs Your Agency Is Ready to Automate Client Success',
-    platform: 'linkedin',
-    body: `You know your agency is ready to automate when:
+    title: 'How Our AI Agent Sophia Handles Client Emails While We Sleep',
+    platform: 'tiktok',
+    body: `5am. Client emails Sophia. Sophia reads it, drafts a reply in 5 seconds, queues it for approval.
 
-1. You are copy-pasting the same 5 responses every week.
-2. Your team is drowning in low-value email threads.
-3. You have zero visibility into what your agents are actually doing.
+By the time Josh wakes up — response is ready, one tap to send.
 
-We fixed all three with one system. Here is the breakdown.
+Client thinks you are always on. You were actually asleep.
 
-Sophia CSM handles all incoming client emails — Ascend LC, Favorite Logistics, Race Technik. She reads, drafts, and queues responses for approval. Every action logs to a task board. Every escalation pings Josh on Telegram.
-
-No more inbox anxiety. No more missed emails. No more manual copy-paste.
-
-If you are running 3 or more clients and still doing this manually, you are leaving serious time on the table.
-
-What are you automating in 2026?`,
+This is what agency automation looks like in 2026.`,
     generatedAt: '2026-02-19T07:00:00Z',
   },
   {
     id: '3',
-    title: 'We Built a Command Centre for Our Entire Agency in 72 Hours',
+    title: 'The SA Agency Owner Working 3 Hours a Day',
     platform: 'tiktok',
-    body: `Kill switch on the wall. Live agent status. Email queue with one-click approvals. Debt tracker. Income graphs. All of it live in 72 hours.
+    body: `3 clients. R71k a month. 3 hours of actual work per day.
 
-This is Mission Control — built with Lovable, Supabase, and Claude Code.
+The rest? Automated.
 
-Alex Claww is the orchestrator. Sophia handles CSM. Alex Outreach does cold email. Video Bot generates scripts. Repo Watcher monitors client code.
+Cold outreach runs at 9am. Sophia handles client emails. Video Bot generates content. Repo Watcher monitors client code.
 
-Everything logs to a task board so I always know what is running, what is done, and what needs my attention.
+All on a MacBook Air. No team. No office. No burnout.
 
-Full tour in the next video. Drop a follow if you want to see how we built this.`,
+This is the agency model we are building. Comment SYSTEM if you want the breakdown.`,
     generatedAt: '2026-02-19T07:00:00Z',
   },
   {
     id: '4',
-    title: 'Why South African Agencies Are Sleeping on AI Automation',
-    platform: 'youtube',
-    body: `While most SA agencies are still quoting manually and responding to emails at 11pm, we automated our entire client success pipeline.
+    title: 'Why I Stopped Replying to Client Emails Myself',
+    platform: 'tiktok',
+    body: `I used to spend 2 hours a day just on client email.
 
-Sophia handles the emails.
-Alex handles cold outreach.
-Josh handles the actual strategy.
+Now I spend 5 minutes reviewing what Sophia already drafted.
 
-This is how you scale without hiring.
+She catches every email. Reads the context. Writes a warm human response in SA English. Queues it for my approval.
 
-The barrier most people think exists — cost, complexity, server infrastructure — does not. We run everything on a MacBook Air. The whole system costs less than one junior hire per month.
+I click approve. Done.
 
-The only thing holding SA agencies back is not knowing this is possible. Now you know.
-
-Here is the full breakdown of what we built and how you can do the same thing.`,
+This is not AI replacing relationships. This is AI protecting your time so you can actually be present for the relationships that matter.`,
     generatedAt: '2026-02-19T07:00:00Z',
   },
 ];
@@ -97,11 +81,11 @@ const PLATFORM_CONFIG = {
   blog:     { label: 'Blog',     color: 'bg-green-900/40 text-green-300 border-green-700/40', icon: FileText },
 };
 
-const TABS = ['Video Scripts', 'Blog Posts', 'Cold Outreach'] as const;
+const TABS = ['TikTok', 'YouTube', 'Cold Outreach'] as const;
 type Tab = typeof TABS[number];
 
 export default function Content() {
-  const [activeTab, setActiveTab] = useState<Tab>('Video Scripts');
+  const [activeTab, setActiveTab] = useState<Tab>('TikTok');
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const handleCopy = (script: Script) => {
@@ -113,7 +97,7 @@ export default function Content() {
   };
 
   const handleGenerate = () => {
-    toast.info('Queued for next Video Bot cron run (7am daily)');
+    toast.info('Queued for next Video Bot cron run (7am daily — 4 TikToks + YouTube on schedule days)');
   };
 
   const timeSince = (ts: string) => {
@@ -131,7 +115,7 @@ export default function Content() {
         <div>
           <h1 className="font-display text-xl font-bold tracking-wider text-foreground glow-cyan">Content</h1>
           <p className="font-mono text-xs text-muted-foreground mt-1">
-            Scripts and content — generated daily at 7am
+            4 TikToks daily · 2 YouTube per week · Generated at 7am
           </p>
         </div>
         <Button
@@ -162,14 +146,14 @@ export default function Content() {
       </div>
 
       {/* Content */}
-      {activeTab === 'Video Scripts' ? (
+      {activeTab === 'TikTok' ? (
         <div className="space-y-3">
           {/* Today label */}
           <div className="flex items-center gap-2">
             <span className="font-mono text-[10px] text-muted-foreground uppercase tracking-wider">Today — Feb 19, 2026</span>
             <div className="flex-1 h-px bg-border/30" />
-            <Badge className="font-mono text-[9px] bg-warning/10 text-warning border-warning/30">
-              Missed 7am cron — manual seed
+            <Badge className="font-mono text-[9px] bg-primary/10 text-primary border-primary/30">
+              4 TikToks
             </Badge>
           </div>
 
@@ -215,8 +199,12 @@ export default function Content() {
       ) : (
         <div className="border border-border/30 rounded-lg p-12 text-center">
           <FileText className="h-8 w-8 text-muted-foreground/40 mx-auto mb-3" />
-          <p className="font-mono text-sm text-muted-foreground">{activeTab} — coming soon</p>
-          <p className="font-mono text-xs text-muted-foreground/60 mt-1">Being built in the next sprint</p>
+          <p className="font-mono text-sm text-muted-foreground">
+            {activeTab === 'YouTube' ? 'YouTube — 2 scripts per week' : `${activeTab} — coming soon`}
+          </p>
+          <p className="font-mono text-xs text-muted-foreground/60 mt-1">
+            {activeTab === 'YouTube' ? 'Scripts will appear on YouTube days once schedule is set' : 'Being built in the next sprint'}
+          </p>
         </div>
       )}
     </div>
