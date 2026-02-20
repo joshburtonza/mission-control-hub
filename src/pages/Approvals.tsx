@@ -1,8 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { AlertTriangle, CheckCircle, XCircle, Clock, Mail } from 'lucide-react';
@@ -32,6 +40,9 @@ export default function Approvals() {
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'pending' | 'history'>('pending');
+
+  const [open, setOpen] = useState(false);
+  const [selected, setSelected] = useState<EmailItem | null>(null);
 
   useEffect(() => {
     fetchData();
@@ -90,72 +101,53 @@ export default function Approvals() {
 
   const EmailCard = ({ email, showActions }: { email: EmailItem; showActions: boolean }) => {
     const cc = clientLabels[email.client || ''];
-    const analysis = typeof email.analysis === 'object' ? email.analysis : null;
     return (
-      <Card className={`bg-card ${showActions ? 'border-orange-600/40' : 'border-border/30'}`}>
-        <CardContent className="p-4 space-y-3">
-          <div className="flex items-start justify-between gap-2">
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-1 flex-wrap">
-                {showActions && (
-                  <Badge className="bg-orange-900/60 text-orange-300 border-orange-600/40 border text-[9px] font-mono">
-                    <AlertTriangle className="h-2.5 w-2.5 mr-1" />ESCALATION
-                  </Badge>
-                )}
-                {cc && <Badge className={`${cc.color} border text-[9px] font-mono`}>{cc.label}</Badge>}
-                {!showActions && (
-                  <Badge className={`border text-[9px] font-mono ${email.status === 'approved' ? 'bg-green-900/40 text-green-300 border-green-700/40' : 'bg-red-900/40 text-red-300 border-red-700/40'}`}>
-                    {email.status === 'approved' ? 'Approved' : 'Rejected'}
-                  </Badge>
-                )}
+      <button
+        type="button"
+        onClick={() => {
+          setSelected(email);
+          setOpen(true);
+        }}
+        className="w-full text-left"
+      >
+        <Card className={`bg-card transition-colors hover:border-primary/40 ${showActions ? 'border-orange-600/40' : 'border-border/30'}`}>
+          <CardContent className="p-4 space-y-3">
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1 flex-wrap">
+                  {showActions && (
+                    <Badge className="bg-orange-900/60 text-orange-300 border-orange-600/40 border text-[9px] font-mono">
+                      <AlertTriangle className="h-2.5 w-2.5 mr-1" />ESCALATION
+                    </Badge>
+                  )}
+                  {cc && <Badge className={`${cc.color} border text-[9px] font-mono`}>{cc.label}</Badge>}
+                  {!showActions && (
+                    <Badge className={`border text-[9px] font-mono ${email.status === 'approved' ? 'bg-green-900/40 text-green-300 border-green-700/40' : 'bg-red-900/40 text-red-300 border-red-700/40'}`}>
+                      {email.status === 'approved' ? 'Approved' : 'Rejected'}
+                    </Badge>
+                  )}
+                </div>
+                <p className="font-mono text-xs text-foreground font-medium truncate">{email.subject}</p>
+                <p className="font-mono text-[10px] text-muted-foreground mt-0.5 truncate">
+                  <Mail className="h-2.5 w-2.5 inline mr-1" />{email.from_email}
+                </p>
               </div>
-              <p className="font-mono text-xs text-foreground font-medium">{email.subject}</p>
-              <p className="font-mono text-[10px] text-muted-foreground mt-0.5">
-                <Mail className="h-2.5 w-2.5 inline mr-1" />{email.from_email}
-              </p>
+              <div className="flex items-center gap-1 text-[9px] font-mono text-muted-foreground shrink-0">
+                <Clock className="h-2.5 w-2.5" />{timeSince(email.created_at)}
+              </div>
             </div>
-            <div className="flex items-center gap-1 text-[9px] font-mono text-muted-foreground shrink-0">
-              <Clock className="h-2.5 w-2.5" />{timeSince(email.created_at)}
-            </div>
-          </div>
-          {email.body && (
-            <div>
-              <p className="text-[9px] font-mono text-muted-foreground uppercase tracking-wider mb-1">Email</p>
-              <ScrollArea className="h-16 bg-secondary/20 rounded p-2">
-                <p className="text-[10px] font-mono text-foreground/70 whitespace-pre-wrap">{email.body}</p>
-              </ScrollArea>
-            </div>
-          )}
-          {analysis && (
-            <div className="bg-secondary/30 rounded p-2.5 space-y-1">
-              <p className="text-[9px] font-mono text-muted-foreground uppercase tracking-wider">Sophia's Read</p>
-              {analysis.reason && <p className="text-[10px] font-mono text-orange-300">Reason: {analysis.reason}</p>}
-              {analysis.draft_response && (
-                <>
-                  <p className="text-[9px] font-mono text-muted-foreground uppercase tracking-wider mt-2">Draft Response</p>
-                  <ScrollArea className="h-16">
-                    <p className="text-[10px] font-mono text-foreground/70 whitespace-pre-wrap">{analysis.draft_response}</p>
-                  </ScrollArea>
-                </>
-              )}
-            </div>
-          )}
-          {showActions && (
-            <div className="flex gap-2 pt-1">
-              <Button onClick={() => handleAction(email, 'approved')} disabled={processing === email.id}
-                className="flex-1 bg-green-900 hover:bg-green-800 text-green-200 border border-green-700/50 font-mono text-xs h-8">
-                <CheckCircle className="h-3.5 w-3.5 mr-1.5" />Approve
-              </Button>
-              <Button onClick={() => handleAction(email, 'rejected')} disabled={processing === email.id}
-                className="flex-1 bg-red-900 hover:bg-red-800 text-red-200 border border-red-700/50 font-mono text-xs h-8">
-                <XCircle className="h-3.5 w-3.5 mr-1.5" />Reject
-              </Button>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+
+            <p className="font-mono text-[10px] text-muted-foreground">
+              Tap to open thread →
+            </p>
+          </CardContent>
+        </Card>
+      </button>
     );
   };
+
+  const selectedAnalysis = selected && typeof selected.analysis === 'object' ? selected.analysis : null;
+  const selectedClient = selected ? clientLabels[selected.client || ''] : null;
 
   return (
     <div className="space-y-6">
@@ -205,6 +197,108 @@ export default function Approvals() {
       ) : (
         <div className="space-y-3">{history.map(e => <EmailCard key={e.id} email={e} showActions={false} />)}</div>
       )}
+
+      {/* Modal: view full thread + approve/reject */}
+      <Dialog open={open} onOpenChange={(v) => {
+        setOpen(v);
+        if (!v) setSelected(null);
+      }}>
+        <DialogContent className="w-[calc(100vw-24px)] sm:max-w-3xl max-h-[85vh] overflow-hidden p-0">
+          {selected && (
+            <div className="flex flex-col max-h-[85vh]">
+              <div className="p-4 sm:p-6 border-b border-border/40">
+                <DialogHeader>
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 mb-2 flex-wrap">
+                        {activeTab === 'pending' && (
+                          <Badge className="bg-orange-900/60 text-orange-300 border-orange-600/40 border text-[10px] font-mono">
+                            <AlertTriangle className="h-3 w-3 mr-1" />ESCALATION
+                          </Badge>
+                        )}
+                        {selectedClient && (
+                          <Badge className={`${selectedClient.color} border text-[10px] font-mono`}>{selectedClient.label}</Badge>
+                        )}
+                        {activeTab === 'history' && (
+                          <Badge className={`border text-[10px] font-mono ${selected.status === 'approved' ? 'bg-green-900/40 text-green-300 border-green-700/40' : 'bg-red-900/40 text-red-300 border-red-700/40'}`}>
+                            {selected.status === 'approved' ? 'Approved' : 'Rejected'}
+                          </Badge>
+                        )}
+                        <Badge className="bg-secondary/40 text-muted-foreground border-border/40 border text-[10px] font-mono">
+                          <Clock className="h-3 w-3 mr-1" />{timeSince(selected.created_at)}
+                        </Badge>
+                      </div>
+                      <DialogTitle className="font-mono text-sm sm:text-base break-words">
+                        {selected.subject}
+                      </DialogTitle>
+                      <DialogDescription className="font-mono text-xs mt-1 break-words">
+                        <Mail className="h-3 w-3 inline mr-1" />{selected.from_email}
+                      </DialogDescription>
+                    </div>
+                  </div>
+                </DialogHeader>
+              </div>
+
+              <div className="flex-1 overflow-auto">
+                <div className="p-4 sm:p-6 space-y-4">
+                  {/* Email body */}
+                  {selected.body && (
+                    <div>
+                      <p className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider mb-2">Email</p>
+                      <div className="bg-secondary/20 rounded border border-border/30">
+                        <ScrollArea className="h-[30vh] sm:h-[35vh] p-3">
+                          <p className="text-xs font-mono text-foreground/80 whitespace-pre-wrap">{selected.body}</p>
+                        </ScrollArea>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Sophia analysis */}
+                  {selectedAnalysis && (
+                    <div className="bg-secondary/30 rounded border border-border/30 p-3 space-y-2">
+                      <p className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">Sophia's Read</p>
+                      {selectedAnalysis.reason && (
+                        <p className="text-xs font-mono text-orange-300">Reason: {selectedAnalysis.reason}</p>
+                      )}
+                      {selectedAnalysis.draft_response && (
+                        <>
+                          <p className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider mt-2">Draft Response</p>
+                          <div className="bg-secondary/10 rounded border border-border/20">
+                            <ScrollArea className="h-[22vh] sm:h-[25vh] p-3">
+                              <p className="text-xs font-mono text-foreground/80 whitespace-pre-wrap">{selectedAnalysis.draft_response}</p>
+                            </ScrollArea>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {activeTab === 'pending' && (
+                <div className="p-4 sm:p-6 border-t border-border/40 bg-background">
+                  <DialogFooter className="flex flex-row gap-2 sm:justify-between">
+                    <Button
+                      onClick={() => selected && handleAction(selected, 'approved')}
+                      disabled={!selected || processing === selected.id}
+                      className="flex-1 bg-green-900 hover:bg-green-800 text-green-200 border border-green-700/50 font-mono text-sm h-10"
+                    >
+                      <CheckCircle className="h-4 w-4 mr-2" />Approve
+                    </Button>
+                    <Button
+                      onClick={() => selected && handleAction(selected, 'rejected')}
+                      disabled={!selected || processing === selected.id}
+                      className="flex-1 bg-red-900 hover:bg-red-800 text-red-200 border border-red-700/50 font-mono text-sm h-10"
+                    >
+                      <XCircle className="h-4 w-4 mr-2" />Reject
+                    </Button>
+                  </DialogFooter>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
