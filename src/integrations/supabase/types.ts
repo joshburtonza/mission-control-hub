@@ -170,6 +170,7 @@ export type Database = {
       email_queue: {
         Row: {
           analysis: Json | null
+          attachments: Json | null
           body: string | null
           client: string | null
           created_at: string | null
@@ -178,6 +179,7 @@ export type Database = {
           priority: number | null
           received_at: string | null
           requires_approval: boolean | null
+          sent_at: string | null
           status: string | null
           subject: string
           to_email: string
@@ -185,6 +187,7 @@ export type Database = {
         }
         Insert: {
           analysis?: Json | null
+          attachments?: Json | null
           body?: string | null
           client?: string | null
           created_at?: string | null
@@ -193,6 +196,7 @@ export type Database = {
           priority?: number | null
           received_at?: string | null
           requires_approval?: boolean | null
+          sent_at?: string | null
           status?: string | null
           subject: string
           to_email: string
@@ -200,6 +204,7 @@ export type Database = {
         }
         Update: {
           analysis?: Json | null
+          attachments?: Json | null
           body?: string | null
           client?: string | null
           created_at?: string | null
@@ -208,6 +213,7 @@ export type Database = {
           priority?: number | null
           received_at?: string | null
           requires_approval?: boolean | null
+          sent_at?: string | null
           status?: string | null
           subject?: string
           to_email?: string
