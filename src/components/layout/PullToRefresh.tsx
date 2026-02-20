@@ -65,11 +65,11 @@ export function PullToRefresh({ children, onRefresh }: Props) {
   return (
     <div
       ref={containerRef}
-      className="flex-1 overflow-auto relative"
+      className="flex-1 overflow-auto relative mc-scroll"
       onTouchStart={onTouchStart}
       onTouchMove={onTouchMove}
       onTouchEnd={onTouchEnd}
-      style={{ overscrollBehavior: 'none' }}
+      style={{ overscrollBehavior: 'none', scrollbarGutter: 'stable' }}
     >
       {/* Pull indicator */}
       <div
