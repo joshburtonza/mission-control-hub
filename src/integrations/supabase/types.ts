@@ -167,15 +167,50 @@ export type Database = {
         }
         Relationships: []
       }
+      debt_entries: {
+        Row: {
+          created_at: string | null
+          id: string
+          monthly_payment: number
+          name: string
+          notes: string | null
+          remaining_amount: number
+          total_amount: number
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          monthly_payment: number
+          name: string
+          notes?: string | null
+          remaining_amount: number
+          total_amount: number
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          monthly_payment?: number
+          name?: string
+          notes?: string | null
+          remaining_amount?: number
+          total_amount?: number
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       email_queue: {
         Row: {
           analysis: Json | null
-          attachments: Json | null
+          approval_telegram_message_id: string | null
+          approval_telegram_sent_at: string | null
           body: string | null
           client: string | null
           created_at: string | null
           from_email: string
           id: string
+          last_error: string | null
           priority: number | null
           received_at: string | null
           requires_approval: boolean | null
@@ -187,12 +222,14 @@ export type Database = {
         }
         Insert: {
           analysis?: Json | null
-          attachments?: Json | null
+          approval_telegram_message_id?: string | null
+          approval_telegram_sent_at?: string | null
           body?: string | null
           client?: string | null
           created_at?: string | null
           from_email: string
           id?: string
+          last_error?: string | null
           priority?: number | null
           received_at?: string | null
           requires_approval?: boolean | null
@@ -204,12 +241,14 @@ export type Database = {
         }
         Update: {
           analysis?: Json | null
-          attachments?: Json | null
+          approval_telegram_message_id?: string | null
+          approval_telegram_sent_at?: string | null
           body?: string | null
           client?: string | null
           created_at?: string | null
           from_email?: string
           id?: string
+          last_error?: string | null
           priority?: number | null
           received_at?: string | null
           requires_approval?: boolean | null
@@ -217,6 +256,45 @@ export type Database = {
           status?: string | null
           subject?: string
           to_email?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      income_entries: {
+        Row: {
+          amount: number
+          client: string
+          created_at: string | null
+          currency: string | null
+          id: string
+          month: string
+          notes: string | null
+          project: string
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          amount: number
+          client: string
+          created_at?: string | null
+          currency?: string | null
+          id?: string
+          month: string
+          notes?: string | null
+          project: string
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          amount?: number
+          client?: string
+          created_at?: string | null
+          currency?: string | null
+          id?: string
+          month?: string
+          notes?: string | null
+          project?: string
+          status?: string | null
           updated_at?: string | null
         }
         Relationships: []
