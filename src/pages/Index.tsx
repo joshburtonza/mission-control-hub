@@ -1,12 +1,13 @@
-import React, { useState, useEffect } from 'react';
-import { AgentCard, AgentStatus } from "@/components/dashboard/AgentCard";
+import { useState, useEffect } from "react";
 import { ActivityFeed } from "@/components/dashboard/ActivityFeed";
 import { SystemStats } from "@/components/dashboard/SystemStats";
 import { EmailQueue } from "@/components/EmailQueue";
 import { KillSwitch } from "@/components/KillSwitch";
 import { supabase } from "@/integrations/supabase/client";
+import { Bot, CheckCircle2, AlertCircle, Clock, WifiOff } from "lucide-react";
+import { cn } from "@/lib/utils";
 
-interface AgentRow {
+interface Agent {
   id: string;
   name: string;
   role: string;
@@ -15,80 +16,107 @@ interface AgentRow {
   last_activity: string | null;
 }
 
-const timeSince = (ts: string | null) => {
-  if (!ts) return 'Unknown';
-  const diff = Date.now() - new Date(ts).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return 'Just now';
-  if (mins < 60) return `${mins}m ago`;
-  return `${Math.floor(mins / 60)}h ago`;
+const statusConfig: Record<string, { label: string; dot: string; text: string }> = {
+  online:  { label: "ONLINE",  dot: "bg-success animate-pulse", text: "text-success" },
+  idle:    { label: "IDLE",    dot: "bg-warning animate-pulse",  text: "text-warning" },
+  offline: { label: "OFFLINE", dot: "bg-muted-foreground",       text: "text-muted-foreground" },
+  error:   { label: "ERROR",   dot: "bg-destructive animate-pulse", text: "text-destructive" },
+};
+
+const roleLabels: Record<string, string> = {
+  csm:        "Customer Success",
+  outreach:   "Cold Outreach",
+  automation: "Automation",
+  monitor:    "Monitor",
 };
 
 const Index = () => {
-  const [agents, setAgents] = useState<AgentRow[]>([]);
+  const [agents, setAgents] = useState<Agent[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchAgents();
+
     const channel = supabase
-      .channel('index_agents')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'agents' }, fetchAgents)
+      .channel("dashboard_agents")
+      .on("postgres_changes", { event: "*", schema: "public", table: "agents" }, fetchAgents)
       .subscribe();
+
     return () => { supabase.removeChannel(channel); };
   }, []);
 
   const fetchAgents = async () => {
-    const { data } = await supabase.from('agents').select('*').order('name');
-    if (data) setAgents(data);
+    const { data, error } = await supabase.from("agents").select("*").order("created_at");
+    if (!error) setAgents(data || []);
+    setLoading(false);
   };
 
   return (
-    <div className="w-full min-h-screen bg-black p-3 sm:p-6 space-y-4 sm:space-y-6 overflow-x-hidden">
-      <div className="sticky top-0 z-10 bg-black/80 backdrop-blur -mx-3 sm:-mx-6 px-3 sm:px-6 py-3 sm:py-4">
-        <h1 className="font-display text-lg sm:text-xl font-bold tracking-wider text-foreground glow-cyan">
-          Mission Control
-        </h1>
-        <p className="font-mono text-xs text-muted-foreground mt-1">
-          System overview · All agents reporting
-        </p>
-      </div>
-      <div className="overflow-x-auto">
-        <SystemStats />
-      </div>
+    <div className="space-y-6">
+      {/* Real-time stats from Supabase */}
+      <SystemStats />
+
+      {/* Agent overview - live from Supabase */}
       <div>
-        <h2 className="font-mono text-[10px] sm:text-xs uppercase tracking-widest text-muted-foreground mb-2 sm:mb-3">
-          Active Agents
+        <h2 className="text-xs uppercase tracking-wider text-muted-foreground mb-3 font-medium">
+          Agents ({agents.filter(a => a.status === "online").length} online)
         </h2>
-        {agents.length === 0 ? (
-          <div className="font-mono text-xs text-muted-foreground p-4 border border-border/30 rounded-md text-center">
-            No agents in Supabase yet
+        {loading ? (
+          <div className="text-sm text-muted-foreground animate-pulse">Loading agents...</div>
+        ) : agents.length === 0 ? (
+          <div className="rounded-2xl bg-card p-6 text-center">
+            <p className="text-sm text-card-foreground/40">No agents configured yet</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3 md:gap-4">
-            {agents.map((agent) => (
-              <div key={agent.id} className="min-w-0">
-                <AgentCard
-                  name={agent.name}
-                  status={(agent.status as AgentStatus) || 'offline'}
-                  lastActivity={timeSince(agent.last_activity)}
-                  currentTask={agent.current_task || 'Idle'}
-                  type={agent.role}
-                />
-              </div>
-            ))}
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            {agents.map((agent) => {
+              const sc = statusConfig[agent.status || "offline"];
+              return (
+                <div key={agent.id} className="rounded-2xl bg-card p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-3">
+                      <div className="h-9 w-9 rounded-xl bg-sidebar-accent flex items-center justify-center">
+                        <Bot className="h-4 w-4 text-card-foreground" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-card-foreground">{agent.name}</p>
+                        <p className="text-[11px] text-card-foreground/40">
+                          {roleLabels[agent.role] || agent.role}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className={cn("h-2 w-2 rounded-full", sc.dot)} />
+                      <span className={cn("text-[10px] font-medium tracking-wider", sc.text)}>
+                        {sc.label}
+                      </span>
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-card-foreground/30 uppercase tracking-wider">Current Task</p>
+                    <p className="text-xs text-card-foreground/60 truncate mt-0.5">
+                      {agent.current_task || "No active task"}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 w-full">
-        <div className="lg:col-span-2 min-w-0 overflow-hidden">
+
+      {/* Email queue + Kill switch */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
+        <div className="lg:col-span-2">
           <EmailQueue />
         </div>
-        <div className="lg:col-span-1 min-w-0 overflow-hidden">
+        <div className="lg:col-span-1">
           <KillSwitch />
         </div>
       </div>
-      <div className="overflow-x-auto">
-        <ActivityFeed />
-      </div>
+
+      {/* Live activity */}
+      <ActivityFeed />
     </div>
   );
 };

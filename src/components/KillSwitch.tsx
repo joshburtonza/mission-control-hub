@@ -1,7 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { AlertTriangle, Power, PlayCircle, ShieldAlert } from 'lucide-react';
@@ -24,9 +22,7 @@ export const KillSwitch: React.FC = () => {
       })
       .subscribe();
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return () => { supabase.removeChannel(channel); };
   }, []);
 
   const fetchKillSwitchStatus = async () => {
@@ -63,7 +59,6 @@ export const KillSwitch: React.FC = () => {
 
       if (error) throw error;
 
-      // Also write to audit log
       await supabase.from('audit_log').insert({
         agent: 'System',
         action: newStatus === 'stopped' ? 'kill_switch_activated' : 'kill_switch_deactivated',
@@ -71,7 +66,6 @@ export const KillSwitch: React.FC = () => {
         status: 'success',
       });
 
-      // Fire-and-forget filesystem write (won't block if endpoint doesn't exist yet)
       fetch('/api/kill-switch/file', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -81,11 +75,11 @@ export const KillSwitch: React.FC = () => {
       setStatus(newStatus);
 
       if (newStatus === 'stopped') {
-        toast.error('KILL SWITCH ACTIVATED — All operations halted');
+        toast.error('KILL SWITCH ACTIVATED');
       } else {
-        toast.success('Operations resumed — Agents back online');
+        toast.success('Operations resumed');
       }
-    } catch (err) {
+    } catch {
       toast.error('Failed to toggle kill switch');
     } finally {
       setToggling(false);
@@ -97,84 +91,81 @@ export const KillSwitch: React.FC = () => {
   return (
     <div className="space-y-4">
       {isStopped && (
-        <Alert className="border-destructive/50 bg-destructive/10 animate-pulse">
-          <ShieldAlert className="h-4 w-4 text-destructive" />
-          <AlertDescription className="text-destructive font-mono text-xs">
-            KILL SWITCH ACTIVE — ALL AGENT OPERATIONS HALTED
-          </AlertDescription>
-        </Alert>
+        <div className="rounded-xl bg-destructive/10 border border-destructive/30 p-3 flex items-center gap-2 animate-pulse">
+          <ShieldAlert className="h-4 w-4 text-destructive shrink-0" />
+          <p className="text-xs font-medium text-destructive">
+            KILL SWITCH ACTIVE — ALL OPERATIONS HALTED
+          </p>
+        </div>
       )}
 
-      <Card className={`border-2 transition-colors duration-500 ${isStopped ? 'border-destructive/80 bg-destructive/5' : 'border-success/50 bg-card'}`}>
-        <CardHeader className="pb-3">
-          <div className="flex items-center gap-2">
-            {isStopped ? (
-              <AlertTriangle className="h-4 w-4 text-destructive" />
-            ) : (
-              <Power className="h-4 w-4 text-success" />
-            )}
-            <CardTitle className={`text-sm font-display tracking-wide ${isStopped ? 'text-destructive' : 'text-success'}`}>
-              Emergency Kill Switch
-            </CardTitle>
-          </div>
-          <div className="flex items-center gap-2 mt-1">
+      <div className={`rounded-2xl p-5 transition-colors duration-500 ${
+        isStopped
+          ? "bg-destructive/10 ring-2 ring-destructive/40"
+          : "bg-card"
+      }`}>
+        <div className="flex items-center gap-2 mb-4">
+          {isStopped ? (
+            <AlertTriangle className="h-4 w-4 text-destructive" />
+          ) : (
+            <Power className="h-4 w-4 text-success" />
+          )}
+          <h3 className={`text-sm font-semibold ${isStopped ? "text-destructive" : "text-success"}`}>
+            Emergency Kill Switch
+          </h3>
+          <div className="flex items-center gap-1.5 ml-auto">
             <span className={`h-2 w-2 rounded-full ${isStopped ? 'bg-destructive' : 'bg-success animate-pulse'}`} />
-            <span className={`font-mono text-[10px] uppercase tracking-widest ${isStopped ? 'text-destructive' : 'text-success'}`}>
+            <span className={`text-[10px] font-medium tracking-wider ${isStopped ? 'text-destructive' : 'text-success'}`}>
               {isStopped ? 'STOPPED' : 'RUNNING'}
             </span>
           </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <Button
-            onClick={toggleKillSwitch}
-            disabled={loading || toggling}
-            className={`w-full py-6 text-base font-display tracking-wider transition-all duration-300 ${
-              isStopped
-                ? 'bg-success/20 hover:bg-success/30 text-success border border-success/50'
-                : 'bg-destructive/80 hover:bg-destructive text-white border border-destructive/50'
-            }`}
-          >
-            {toggling ? (
-              <span className="font-mono text-xs animate-pulse">Processing...</span>
-            ) : isStopped ? (
-              <>
-                <PlayCircle className="h-5 w-5 mr-2" />
-                RESUME ALL OPERATIONS
-              </>
-            ) : (
-              <>
-                <Power className="h-5 w-5 mr-2" />
-                STOP ALL OPERATIONS
-              </>
-            )}
-          </Button>
+        </div>
 
-          <div className="space-y-1 p-3 bg-secondary/30 rounded-md border border-border/30 font-mono text-[10px] text-muted-foreground">
+        <Button
+          onClick={toggleKillSwitch}
+          disabled={loading || toggling}
+          className={`w-full py-5 text-sm font-semibold tracking-wide rounded-xl transition-all ${
+            isStopped
+              ? 'bg-success/20 hover:bg-success/30 text-success border border-success/40'
+              : 'bg-destructive/80 hover:bg-destructive text-white border border-destructive/40'
+          }`}
+        >
+          {toggling ? (
+            <span className="animate-pulse">Processing...</span>
+          ) : isStopped ? (
+            <>
+              <PlayCircle className="h-4 w-4 mr-2" />
+              RESUME ALL OPERATIONS
+            </>
+          ) : (
+            <>
+              <Power className="h-4 w-4 mr-2" />
+              STOP ALL OPERATIONS
+            </>
+          )}
+        </Button>
+
+        <div className="mt-4 space-y-1.5 text-[10px] text-card-foreground/40">
+          {lastTriggered && (
             <div className="flex justify-between">
-              <span>Status</span>
-              <span className={isStopped ? 'text-destructive' : 'text-success'}>{isStopped ? 'STOPPED' : 'RUNNING'}</span>
+              <span>Last triggered</span>
+              <span className="text-card-foreground/60">{new Date(lastTriggered).toLocaleString()}</span>
             </div>
-            {lastTriggered && (
-              <div className="flex justify-between">
-                <span>Last triggered</span>
-                <span className="text-foreground/60">{new Date(lastTriggered).toLocaleString()}</span>
-              </div>
-            )}
-            {triggeredBy && (
-              <div className="flex justify-between">
-                <span>Triggered by</span>
-                <span className="text-foreground/60">{triggeredBy}</span>
-              </div>
-            )}
-            {reason && isStopped && (
-              <div className="flex justify-between">
-                <span>Reason</span>
-                <span className="text-destructive/80 max-w-[60%] text-right">{reason}</span>
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+          )}
+          {triggeredBy && (
+            <div className="flex justify-between">
+              <span>By</span>
+              <span className="text-card-foreground/60">{triggeredBy}</span>
+            </div>
+          )}
+          {reason && isStopped && (
+            <div className="flex justify-between">
+              <span>Reason</span>
+              <span className="text-destructive/80 text-right max-w-[60%]">{reason}</span>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 };

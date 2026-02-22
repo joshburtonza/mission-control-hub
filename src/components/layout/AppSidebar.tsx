@@ -1,67 +1,95 @@
-import { Bot, LayoutDashboard, ListTodo, DollarSign, Calendar, Settings, ClipboardList, AlertTriangle, Activity, Bell, FileText } from "lucide-react";
-import { NavLink } from "@/components/NavLink";
 import {
-  Sidebar,
-  SidebarContent,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-} from "@/components/ui/sidebar";
+  LayoutDashboard, Bot, ListTodo, ClipboardList, DollarSign, Calendar,
+  Settings,
+} from "lucide-react";
+import { NavLink } from "@/components/NavLink";
 
-const navItems = [
-  { title: "Mission Control", url: "/",               icon: LayoutDashboard },
-  { title: "Notifications",   url: "/notifications",  icon: Bell },
-  { title: "Approvals",       url: "/approvals",      icon: AlertTriangle },
-  { title: "System Status",   url: "/status",         icon: Activity },
-  { title: "Agents",          url: "/agents",     icon: Bot },
-  { title: "Tasks",           url: "/tasks",      icon: ListTodo },
-  { title: "Content",         url: "/content",    icon: FileText },
-  { title: "Audit Log",       url: "/audit",      icon: ClipboardList },
-  { title: "Finances",        url: "/finances",   icon: DollarSign },
-  { title: "Calendar",        url: "/calendar",   icon: Calendar },
-  { title: "Settings",        url: "/settings",   icon: Settings },
+const mainNav = [
+  { icon: LayoutDashboard, url: "/", label: "Dashboard" },
+  { icon: Bot, url: "/agents", label: "Agents" },
+  { icon: ListTodo, url: "/tasks", label: "Tasks" },
+  { icon: ClipboardList, url: "/audit", label: "Audit" },
+  { icon: DollarSign, url: "/finances", label: "Finances" },
+  { icon: Calendar, url: "/calendar", label: "Calendar" },
+];
+
+function SidebarIcon({
+  icon: Icon,
+  url,
+  label,
+  end,
+}: {
+  icon: React.ElementType;
+  url: string;
+  label: string;
+  end?: boolean;
+}) {
+  return (
+    <NavLink
+      to={url}
+      end={end}
+      className="flex items-center justify-center w-10 h-10 rounded-xl text-sidebar-foreground hover:text-sidebar-accent-foreground hover:bg-sidebar-accent transition-colors"
+      activeClassName="bg-sidebar-accent text-white"
+      title={label}
+    >
+      <Icon className="h-[18px] w-[18px]" />
+    </NavLink>
+  );
+}
+
+const mobileNav = [
+  { icon: LayoutDashboard, url: "/", label: "Home" },
+  { icon: Bot, url: "/agents", label: "Agents" },
+  { icon: ListTodo, url: "/tasks", label: "Tasks" },
+  { icon: ClipboardList, url: "/audit", label: "Audit" },
+  { icon: Settings, url: "/settings", label: "Settings" },
 ];
 
 export function AppSidebar() {
   return (
-    <Sidebar className="border-r border-border/50">
-      <div className="p-4 border-b border-border/50">
-        <h1 className="font-display text-sm font-bold tracking-wider text-primary glow-cyan">
-          OPENCLAW
-        </h1>
-        <p className="font-mono text-[10px] text-muted-foreground mt-1 tracking-widest uppercase">
-          Mission Control v1.1
-        </p>
-      </div>
-      <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel className="font-mono text-[10px] tracking-widest text-muted-foreground uppercase">
-            Navigation
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {navItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild>
-                    <NavLink
-                      to={item.url}
-                      end={item.url === "/"}
-                      className="flex items-center gap-3 px-3 py-2 rounded-md text-sm font-mono text-muted-foreground hover:text-primary hover:bg-secondary transition-colors"
-                      activeClassName="text-primary bg-secondary glow-box-cyan"
-                    >
-                      <item.icon className="h-4 w-4" />
-                      <span>{item.title}</span>
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-      </SidebarContent>
-    </Sidebar>
+    <>
+      {/* Desktop sidebar */}
+      <aside className="hidden md:flex w-16 bg-sidebar flex-col items-center py-4 gap-1 shrink-0">
+        <div className="w-10 h-10 rounded-xl bg-sidebar-accent flex items-center justify-center mb-4">
+          <div className="w-6 h-6 rounded-full border-2 border-white flex items-center justify-center">
+            <div className="w-0 h-0 border-l-[5px] border-l-white border-t-[3px] border-t-transparent border-b-[3px] border-b-transparent ml-0.5" />
+          </div>
+        </div>
+
+        <nav className="flex flex-col items-center gap-1 flex-1">
+          {mainNav.map((item) => (
+            <SidebarIcon
+              key={item.url}
+              icon={item.icon}
+              url={item.url}
+              label={item.label}
+              end={item.url === "/"}
+            />
+          ))}
+        </nav>
+
+        <div className="flex flex-col items-center gap-1 mt-auto">
+          <SidebarIcon icon={Settings} url="/settings" label="Settings" />
+        </div>
+      </aside>
+
+      {/* Mobile bottom tab bar */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-sidebar border-t border-sidebar-border">
+        <div className="flex items-center justify-around h-16 px-1 pb-[env(safe-area-inset-bottom)]">
+          {mobileNav.map((item) => (
+            <NavLink
+              key={item.url}
+              to={item.url}
+              end={item.url === "/"}
+              className="flex flex-col items-center justify-center gap-0.5 flex-1 py-1 text-sidebar-foreground transition-colors"
+              activeClassName="text-white"
+            >
+              <item.icon className="h-5 w-5" />
+              <span className="text-[9px] font-medium">{item.label}</span>
+            </NavLink>
+          ))}
+        </div>
+      </nav>
+    </>
   );
 }

@@ -1,31 +1,43 @@
 import React, { useState, useEffect } from 'react';
-import { Cpu, HardDrive, MemoryStick, Zap, Mail, Bot } from "lucide-react";
+import { Bot, Zap, Mail, ShieldCheck } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
-interface StatProps {
+interface StatCardProps {
   icon: React.ReactNode;
   label: string;
-  value: string | number;
-  unit: string;
+  value: number;
+  subtitle?: string;
+  variant?: "dark" | "accent";
   loading?: boolean;
 }
 
-function StatBlock({ icon, label, value, unit, loading }: StatProps) {
+function StatCard({ icon, label, value, subtitle, variant = "dark", loading }: StatCardProps) {
+  const isAccent = variant === "accent";
+
   return (
-    <div className="flex items-center gap-3 px-4 py-3 rounded-md bg-card border border-border/50">
-      <div className="text-primary">{icon}</div>
-      <div>
-        <p className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">{label}</p>
-        <p className="text-lg font-display text-foreground">
-          {loading ? (
-            <span className="text-sm text-muted-foreground animate-pulse">—</span>
-          ) : (
-            <>
-              {value}
-              <span className="text-xs text-muted-foreground ml-1">{unit}</span>
-            </>
-          )}
-        </p>
+    <div
+      className={`rounded-2xl p-5 flex flex-col gap-2 ${
+        isAccent
+          ? "bg-primary/20 border border-primary/30"
+          : "bg-card text-card-foreground"
+      }`}
+    >
+      <div className="flex items-center gap-2">
+        <span className={isAccent ? "text-primary" : "text-card-foreground/60"}>{icon}</span>
+        <span className={`text-sm font-medium ${isAccent ? "text-foreground" : "text-card-foreground/80"}`}>
+          {label}
+        </span>
+      </div>
+
+      <div className="flex items-end gap-2">
+        <span className={`text-4xl font-bold tracking-tight ${isAccent ? "text-foreground" : "text-card-foreground"}`}>
+          {loading ? "—" : value}
+        </span>
+        {subtitle && (
+          <span className={`text-xs mb-1.5 ${isAccent ? "text-foreground/50" : "text-card-foreground/40"}`}>
+            {subtitle}
+          </span>
+        )}
       </div>
     </div>
   );
@@ -33,7 +45,9 @@ function StatBlock({ icon, label, value, unit, loading }: StatProps) {
 
 export function SystemStats() {
   const [agentsOnline, setAgentsOnline] = useState(0);
+  const [totalAgents, setTotalAgents] = useState(0);
   const [activeTasks, setActiveTasks] = useState(0);
+  const [queuedTasks, setQueuedTasks] = useState(0);
   const [emailsPending, setEmailsPending] = useState(0);
   const [emailsNeedApproval, setEmailsNeedApproval] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -64,10 +78,12 @@ export function SystemStats() {
     ]);
 
     if (!agents.error && agents.data) {
+      setTotalAgents(agents.data.length);
       setAgentsOnline(agents.data.filter(a => a.status === 'online').length);
     }
     if (!tasks.error && tasks.data) {
       setActiveTasks(tasks.data.filter(t => t.status === 'executing').length);
+      setQueuedTasks(tasks.data.filter(t => t.status === 'queued').length);
     }
     if (!emails.error && emails.data) {
       setEmailsPending(emails.data.filter(e => e.status === 'pending' || e.status === 'analyzing').length);
@@ -78,33 +94,35 @@ export function SystemStats() {
   };
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-      <StatBlock
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <StatCard
         icon={<Bot className="h-4 w-4" />}
         label="Agents Online"
         value={agentsOnline}
-        unit=""
+        subtitle={`/ ${totalAgents} total`}
+        variant="dark"
         loading={loading}
       />
-      <StatBlock
+      <StatCard
         icon={<Zap className="h-4 w-4" />}
         label="Active Tasks"
         value={activeTasks}
-        unit=""
+        subtitle={queuedTasks > 0 ? `${queuedTasks} queued` : undefined}
+        variant="dark"
         loading={loading}
       />
-      <StatBlock
+      <StatCard
         icon={<Mail className="h-4 w-4" />}
         label="Emails Pending"
         value={emailsPending}
-        unit=""
+        variant="accent"
         loading={loading}
       />
-      <StatBlock
-        icon={<Cpu className="h-4 w-4" />}
+      <StatCard
+        icon={<ShieldCheck className="h-4 w-4" />}
         label="Needs Approval"
         value={emailsNeedApproval}
-        unit=""
+        variant={emailsNeedApproval > 0 ? "accent" : "dark"}
         loading={loading}
       />
     </div>

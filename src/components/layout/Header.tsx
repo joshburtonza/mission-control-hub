@@ -1,9 +1,20 @@
 import { useState, useEffect } from "react";
-import { Search, Wifi, WifiOff } from "lucide-react";
-import { Input } from "@/components/ui/input";
-import { SidebarTrigger } from "@/components/ui/sidebar";
+import { Wifi, WifiOff } from "lucide-react";
+import { useLocation } from "react-router-dom";
+
+const pageTitles: Record<string, { title: string; subtitle: string }> = {
+  "/": { title: "Mission Control", subtitle: "System overview" },
+  "/agents": { title: "Agents", subtitle: "Real-time status & management" },
+  "/tasks": { title: "Task Board", subtitle: "Live queue" },
+  "/audit": { title: "Audit Log", subtitle: "Decision & action history" },
+  "/finances": { title: "Finances", subtitle: "Tracking" },
+  "/calendar": { title: "Calendar", subtitle: "Schedule & reminders" },
+  "/settings": { title: "Settings", subtitle: "System configuration" },
+};
 
 export function Header() {
+  const location = useLocation();
+  const page = pageTitles[location.pathname] || pageTitles["/"];
   const [time, setTime] = useState(new Date());
   const [online, setOnline] = useState(navigator.onLine);
 
@@ -21,35 +32,31 @@ export function Header() {
   }, []);
 
   return (
-    <header className="h-12 border-b border-border/50 flex items-center justify-between px-4 bg-card/50 backdrop-blur-sm">
-      <div className="flex items-center gap-3">
-        <SidebarTrigger className="text-muted-foreground hover:text-primary" />
-        <div className="hidden md:flex items-center gap-2 text-muted-foreground">
-          <Search className="h-3.5 w-3.5" />
-          <Input
-            placeholder="Search systems..."
-            className="h-7 w-48 bg-transparent border-border/50 text-xs font-mono placeholder:text-muted-foreground/50 focus-visible:ring-primary/30"
-          />
-        </div>
+    <header className="flex items-center justify-between px-4 md:px-6 pt-4 md:pt-6 pb-2">
+      <div>
+        <h1 className="text-xl md:text-2xl font-bold text-foreground leading-tight">
+          {page.title}
+        </h1>
+        <p className="text-xs md:text-sm text-muted-foreground">{page.subtitle}</p>
       </div>
 
-      <div className="flex items-center gap-4">
-        <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 md:gap-4">
+        <div className="flex items-center gap-1.5">
           {online ? (
             <Wifi className="h-3.5 w-3.5 text-success" />
           ) : (
             <WifiOff className="h-3.5 w-3.5 text-destructive" />
           )}
-          <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">
-            {online ? "Online" : "Offline"}
+          <span className="text-[10px] md:text-xs text-muted-foreground hidden sm:inline">
+            {online ? "Connected" : "Offline"}
           </span>
         </div>
-        <div className="font-mono text-xs text-primary tabular-nums glow-cyan">
+        <span className="text-[10px] md:text-xs text-muted-foreground tabular-nums">
           {time.toLocaleTimeString("en-US", { hour12: false })}
-        </div>
-        <div className="font-mono text-[10px] text-muted-foreground">
+        </span>
+        <span className="text-[10px] md:text-xs text-muted-foreground hidden sm:inline">
           {time.toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" })}
-        </div>
+        </span>
       </div>
     </header>
   );

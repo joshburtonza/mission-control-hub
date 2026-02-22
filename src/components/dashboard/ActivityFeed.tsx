@@ -1,6 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Activity } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
@@ -21,13 +19,13 @@ const levelColors: Record<string, string> = {
 };
 
 const actionLabels: Record<string, string> = {
-  email_approved:          'Email approved — response queued',
-  email_rejected:          'Email rejected — response held',
+  email_approved:          'Email approved',
+  email_rejected:          'Email rejected',
   kill_switch_activated:   'KILL SWITCH activated',
-  kill_switch_deactivated: 'Kill switch deactivated — resuming',
+  kill_switch_deactivated: 'Kill switch deactivated',
   agent_status_changed:    'Agent status updated',
-  email_sent:              'Email sent to client',
-  email_analyzed:          'Email analyzed by Sophia',
+  email_sent:              'Email sent',
+  email_analyzed:          'Email analyzed',
 };
 
 export function ActivityFeed() {
@@ -52,54 +50,48 @@ export function ActivityFeed() {
       .from('audit_log')
       .select('*')
       .order('executed_at', { ascending: false })
-      .limit(20);
+      .limit(15);
     if (!error) setEntries(data || []);
     setLoading(false);
   };
 
   const formatTime = (ts: string | null) => {
     if (!ts) return '—';
-    return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
   return (
-    <Card className="bg-card border-border/50 glow-box-cyan">
-      <CardHeader className="pb-3">
-        <div className="flex items-center gap-2">
-          <Activity className="h-4 w-4 text-primary" />
-          <CardTitle className="text-sm font-display tracking-wide">Live Activity Feed</CardTitle>
-          {loading && (
-            <span className="font-mono text-[9px] text-muted-foreground animate-pulse ml-auto">Loading...</span>
-          )}
-        </div>
-      </CardHeader>
-      <CardContent>
-        <ScrollArea className="max-h-64">
-          <div className="space-y-1">
-            {entries.length === 0 && !loading && (
-              <p className="font-mono text-xs text-muted-foreground text-center py-4">
-                No activity yet — agents are standing by
-              </p>
-            )}
-            {entries.map((entry) => (
-              <div
-                key={entry.id}
-                className="flex items-start gap-3 py-1.5 px-2 rounded hover:bg-secondary/50 transition-colors"
-              >
-                <span className="font-mono text-[10px] text-muted-foreground tabular-nums shrink-0 mt-0.5">
-                  {formatTime(entry.executed_at)}
-                </span>
-                <span className={cn("font-mono text-[10px] shrink-0 w-20 mt-0.5 truncate", levelColors[entry.status || 'pending'])}>
-                  [{entry.agent || '?'}]
-                </span>
-                <span className="font-mono text-xs text-foreground/70">
-                  {actionLabels[entry.action || ''] || entry.action}
-                </span>
-              </div>
-            ))}
+    <div className="rounded-2xl bg-card p-5">
+      <div className="flex items-center gap-2 mb-4">
+        <Activity className="h-4 w-4 text-primary" />
+        <h3 className="text-sm font-semibold text-card-foreground">Live Activity</h3>
+        {loading && (
+          <span className="text-[10px] text-card-foreground/30 animate-pulse ml-auto">Loading...</span>
+        )}
+      </div>
+      <div className="space-y-1 max-h-64 overflow-auto dark-scrollbar">
+        {entries.length === 0 && !loading && (
+          <p className="text-xs text-card-foreground/40 text-center py-6">
+            No activity yet
+          </p>
+        )}
+        {entries.map((entry) => (
+          <div
+            key={entry.id}
+            className="flex items-center gap-3 py-2 px-2 rounded-lg hover:bg-white/5 transition-colors"
+          >
+            <span className="text-[10px] text-card-foreground/30 tabular-nums shrink-0">
+              {formatTime(entry.executed_at)}
+            </span>
+            <span className={cn("text-[10px] shrink-0 font-medium", levelColors[entry.status || 'pending'])}>
+              [{entry.agent || '?'}]
+            </span>
+            <span className="text-xs text-card-foreground/60 truncate">
+              {actionLabels[entry.action || ''] || entry.action}
+            </span>
           </div>
-        </ScrollArea>
-      </CardContent>
-    </Card>
+        ))}
+      </div>
+    </div>
   );
 }

@@ -1,15 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { Separator } from '@/components/ui/separator';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import {
-  Settings, Bot, Mail, Save, RefreshCw, Shield, Bell, Users,
-} from 'lucide-react';
+import { Shield, Bot, Bell, Users, Save, RefreshCw } from 'lucide-react';
 
 interface ClientConfig {
   id: string;
@@ -33,9 +29,7 @@ export default function SettingsPage() {
   const [killSwitchPath, setKillSwitchPath] = useState('/Users/josh/.openclaw/KILL_SWITCH');
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    fetchData();
-  }, []);
+  useEffect(() => { fetchData(); }, []);
 
   const fetchData = async () => {
     const { data: clientData } = await supabase.from('clients').select('*').order('name');
@@ -99,209 +93,128 @@ export default function SettingsPage() {
     }
   };
 
+  const inputClass = "h-9 rounded-xl bg-white/5 border-0 text-sm text-card-foreground placeholder:text-card-foreground/30 focus-visible:ring-primary/30";
+
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="font-display text-xl font-bold tracking-wider text-foreground glow-cyan">Settings</h1>
-        <p className="font-mono text-xs text-muted-foreground mt-1">
-          System configuration · Agent settings · Integrations
-        </p>
+    <div className="space-y-6 max-w-3xl">
+      {/* Operator */}
+      <div className="rounded-2xl bg-card p-5">
+        <div className="flex items-center gap-2 mb-4">
+          <Shield className="h-4 w-4 text-primary" />
+          <h3 className="text-sm font-semibold text-card-foreground">Operator Settings</h3>
+        </div>
+        <p className="text-xs text-card-foreground/40 mb-4">Your identity and primary control settings</p>
+        <div className="space-y-4">
+          <div className="space-y-1.5">
+            <Label className="text-[10px] text-card-foreground/40 uppercase tracking-wider">
+              Operator Name
+            </Label>
+            <Input value={operatorName} onChange={e => setOperatorName(e.target.value)} className={inputClass} />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-[10px] text-card-foreground/40 uppercase tracking-wider">
+              Kill Switch File Path
+            </Label>
+            <Input value={killSwitchPath} onChange={e => setKillSwitchPath(e.target.value)} className={inputClass} />
+          </div>
+        </div>
       </div>
 
-      {/* Operator */}
-      <Card className="border-border/50 bg-card">
-        <CardHeader className="pb-3">
-          <div className="flex items-center gap-2">
-            <Shield className="h-4 w-4 text-primary" />
-            <CardTitle className="text-sm font-display tracking-wide">Operator Settings</CardTitle>
-          </div>
-          <CardDescription className="font-mono text-[10px] text-muted-foreground">
-            Your identity and primary control settings
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-1.5">
-            <Label className="font-mono text-[10px] text-muted-foreground uppercase tracking-wider">
-              Operator Name (who approves things)
-            </Label>
-            <Input
-              value={operatorName}
-              onChange={e => setOperatorName(e.target.value)}
-              className="font-mono text-sm bg-secondary/30 border-border/50 h-8"
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label className="font-mono text-[10px] text-muted-foreground uppercase tracking-wider">
-              Kill Switch File Path (on your Mac)
-            </Label>
-            <Input
-              value={killSwitchPath}
-              onChange={e => setKillSwitchPath(e.target.value)}
-              className="font-mono text-sm bg-secondary/30 border-border/50 h-8"
-            />
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Client Management */}
-      <Card className="border-border/50 bg-card">
-        <CardHeader className="pb-3">
-          <div className="flex items-center gap-2">
-            <Users className="h-4 w-4 text-primary" />
-            <CardTitle className="text-sm font-display tracking-wide">Client Accounts</CardTitle>
-          </div>
-          <CardDescription className="font-mono text-[10px] text-muted-foreground">
-            Sophia monitors these inboxes — toggle to pause monitoring
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
+      {/* Clients */}
+      <div className="rounded-2xl bg-card p-5">
+        <div className="flex items-center gap-2 mb-4">
+          <Users className="h-4 w-4 text-primary" />
+          <h3 className="text-sm font-semibold text-card-foreground">Client Accounts</h3>
+        </div>
+        <p className="text-xs text-card-foreground/40 mb-4">Toggle to pause inbox monitoring</p>
+        <div className="space-y-2">
           {clients.map(client => (
-            <div key={client.id} className="flex items-center justify-between p-3 bg-secondary/20 rounded border border-border/30">
+            <div key={client.id} className="flex items-center justify-between p-3 rounded-xl bg-white/5">
               <div>
-                <p className="font-mono text-xs text-foreground">{client.name}</p>
-                <p className="font-mono text-[10px] text-muted-foreground mt-0.5">
+                <p className="text-xs text-card-foreground font-medium">{client.name}</p>
+                <p className="text-[10px] text-card-foreground/30 mt-0.5">
                   {client.email_addresses?.join(', ')}
                 </p>
               </div>
               <div className="flex items-center gap-2">
-                <span className={`font-mono text-[10px] ${client.status === 'active' ? 'text-success' : 'text-warning'}`}>
+                <span className={`text-[10px] font-medium ${client.status === 'active' ? 'text-success' : 'text-warning'}`}>
                   {client.status?.toUpperCase()}
                 </span>
                 <Switch
                   checked={client.status === 'active'}
                   onCheckedChange={() => toggleClientStatus(client)}
-                  className="data-[state=checked]:bg-success"
                 />
               </div>
             </div>
           ))}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
-      {/* Sophia CSM Config */}
-      <Card className="border-border/50 bg-card">
-        <CardHeader className="pb-3">
-          <div className="flex items-center gap-2">
-            <Bot className="h-4 w-4 text-primary" />
-            <CardTitle className="text-sm font-display tracking-wide">Sophia CSM — Config</CardTitle>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center justify-between p-3 bg-secondary/20 rounded border border-border/30">
+      {/* Sophia CSM */}
+      <div className="rounded-2xl bg-card p-5">
+        <div className="flex items-center gap-2 mb-4">
+          <Bot className="h-4 w-4 text-primary" />
+          <h3 className="text-sm font-semibold text-card-foreground">Sophia CSM — Config</h3>
+        </div>
+        <div className="space-y-4">
+          <div className="flex items-center justify-between p-3 rounded-xl bg-white/5">
             <div>
-              <p className="font-mono text-xs text-foreground">Auto-Response</p>
-              <p className="font-mono text-[10px] text-muted-foreground">Sophia sends routine responses without your approval</p>
+              <p className="text-xs text-card-foreground font-medium">Auto-Response</p>
+              <p className="text-[10px] text-card-foreground/30">Send routine responses without approval</p>
             </div>
-            <Switch
-              checked={autoResponse}
-              onCheckedChange={setAutoResponse}
-              className="data-[state=checked]:bg-success"
-            />
+            <Switch checked={autoResponse} onCheckedChange={setAutoResponse} />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label className="font-mono text-[10px] text-muted-foreground uppercase tracking-wider">
-                Min Response Time (mins)
-              </Label>
-              <Input
-                type="number"
-                value={responseTimeMin}
-                onChange={e => setResponseTimeMin(e.target.value)}
-                className="font-mono text-sm bg-secondary/30 border-border/50 h-8"
-              />
+              <Label className="text-[10px] text-card-foreground/40 uppercase tracking-wider">Min Response (mins)</Label>
+              <Input type="number" value={responseTimeMin} onChange={e => setResponseTimeMin(e.target.value)} className={inputClass} />
             </div>
             <div className="space-y-1.5">
-              <Label className="font-mono text-[10px] text-muted-foreground uppercase tracking-wider">
-                Max Response Time (mins)
-              </Label>
-              <Input
-                type="number"
-                value={responseTimeMax}
-                onChange={e => setResponseTimeMax(e.target.value)}
-                className="font-mono text-sm bg-secondary/30 border-border/50 h-8"
-              />
+              <Label className="text-[10px] text-card-foreground/40 uppercase tracking-wider">Max Response (mins)</Label>
+              <Input type="number" value={responseTimeMax} onChange={e => setResponseTimeMax(e.target.value)} className={inputClass} />
             </div>
           </div>
           <div className="space-y-1.5">
-            <Label className="font-mono text-[10px] text-muted-foreground uppercase tracking-wider">
-              Escalation Keywords (comma-separated)
-            </Label>
-            <Input
-              value={escalationKeywords}
-              onChange={e => setEscalationKeywords(e.target.value)}
-              className="font-mono text-sm bg-secondary/30 border-border/50 h-8"
-            />
+            <Label className="text-[10px] text-card-foreground/40 uppercase tracking-wider">Escalation Keywords</Label>
+            <Input value={escalationKeywords} onChange={e => setEscalationKeywords(e.target.value)} className={inputClass} />
           </div>
           <div className="space-y-1.5">
-            <Label className="font-mono text-[10px] text-muted-foreground uppercase tracking-wider">
-              CC Emails (comma-separated)
-            </Label>
-            <Input
-              value={ccEmails}
-              onChange={e => setCcEmails(e.target.value)}
-              className="font-mono text-sm bg-secondary/30 border-border/50 h-8"
-            />
+            <Label className="text-[10px] text-card-foreground/40 uppercase tracking-wider">CC Emails</Label>
+            <Input value={ccEmails} onChange={e => setCcEmails(e.target.value)} className={inputClass} />
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* Integrations */}
-      <Card className="border-border/50 bg-card">
-        <CardHeader className="pb-3">
-          <div className="flex items-center gap-2">
-            <Bell className="h-4 w-4 text-primary" />
-            <CardTitle className="text-sm font-display tracking-wide">Integrations</CardTitle>
-          </div>
-          <CardDescription className="font-mono text-[10px] text-muted-foreground">
-            Telegram (phone approvals) · Discord (notifications)
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
+      <div className="rounded-2xl bg-card p-5">
+        <div className="flex items-center gap-2 mb-4">
+          <Bell className="h-4 w-4 text-primary" />
+          <h3 className="text-sm font-semibold text-card-foreground">Integrations</h3>
+        </div>
+        <p className="text-xs text-card-foreground/40 mb-4">Telegram (approvals) and Discord (notifications)</p>
+        <div className="space-y-4">
           <div className="space-y-1.5">
-            <Label className="font-mono text-[10px] text-muted-foreground uppercase tracking-wider">
-              Telegram Bot Token
-            </Label>
-            <Input
-              type="password"
-              value={telegramToken}
-              onChange={e => setTelegramToken(e.target.value)}
-              placeholder="1234567890:AAF..."
-              className="font-mono text-sm bg-secondary/30 border-border/50 h-8"
-            />
+            <Label className="text-[10px] text-card-foreground/40 uppercase tracking-wider">Telegram Bot Token</Label>
+            <Input type="password" value={telegramToken} onChange={e => setTelegramToken(e.target.value)} placeholder="1234567890:AAF..." className={inputClass} />
           </div>
           <div className="space-y-1.5">
-            <Label className="font-mono text-[10px] text-muted-foreground uppercase tracking-wider">
-              Telegram Chat ID (your phone)
-            </Label>
-            <Input
-              value={telegramChatId}
-              onChange={e => setTelegramChatId(e.target.value)}
-              placeholder="-100123456789"
-              className="font-mono text-sm bg-secondary/30 border-border/50 h-8"
-            />
+            <Label className="text-[10px] text-card-foreground/40 uppercase tracking-wider">Telegram Chat ID</Label>
+            <Input value={telegramChatId} onChange={e => setTelegramChatId(e.target.value)} placeholder="-100123456789" className={inputClass} />
           </div>
-          <Separator className="border-border/30" />
+          <div className="h-px bg-white/5" />
           <div className="space-y-1.5">
-            <Label className="font-mono text-[10px] text-muted-foreground uppercase tracking-wider">
-              Discord Webhook URL (#csm-responses channel)
-            </Label>
-            <Input
-              type="password"
-              value={discordWebhook}
-              onChange={e => setDiscordWebhook(e.target.value)}
-              placeholder="https://discord.com/api/webhooks/..."
-              className="font-mono text-sm bg-secondary/30 border-border/50 h-8"
-            />
+            <Label className="text-[10px] text-card-foreground/40 uppercase tracking-wider">Discord Webhook URL</Label>
+            <Input type="password" value={discordWebhook} onChange={e => setDiscordWebhook(e.target.value)} placeholder="https://discord.com/api/webhooks/..." className={inputClass} />
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* Save */}
       <div className="flex justify-end gap-3">
         <Button
-          variant="outline"
+          variant="ghost"
           onClick={fetchData}
-          className="font-mono text-xs border-border/50 text-muted-foreground hover:text-primary"
+          className="rounded-xl text-sm text-muted-foreground hover:text-foreground"
         >
           <RefreshCw className="h-3.5 w-3.5 mr-2" />
           Reset
@@ -309,9 +222,9 @@ export default function SettingsPage() {
         <Button
           onClick={handleSave}
           disabled={saving}
-          className="font-mono text-xs bg-primary/20 hover:bg-primary/30 text-primary border border-primary/40"
+          className="rounded-xl text-sm bg-primary text-primary-foreground hover:bg-primary/90 gap-2"
         >
-          <Save className="h-3.5 w-3.5 mr-2" />
+          <Save className="h-3.5 w-3.5" />
           {saving ? 'Saving...' : 'Save Settings'}
         </Button>
       </div>

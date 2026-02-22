@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Mail, CheckCircle, XCircle, Clock, AlertTriangle, Send, Eye } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface EmailItem {
   id: string;
@@ -21,19 +20,25 @@ interface EmailItem {
 }
 
 const statusConfig: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
-  pending:          { label: 'Pending',          color: 'bg-yellow-900/60 text-yellow-300 border-yellow-600/40',   icon: <Clock className="h-3 w-3" /> },
-  analyzing:        { label: 'Analyzing',         color: 'bg-blue-900/60 text-blue-300 border-blue-600/40',         icon: <Eye className="h-3 w-3" /> },
-  awaiting_approval:{ label: 'Needs Approval',    color: 'bg-orange-900/60 text-orange-300 border-orange-600/40',   icon: <AlertTriangle className="h-3 w-3" /> },
-  approved:         { label: 'Approved',           color: 'bg-green-900/60 text-green-300 border-green-600/40',      icon: <CheckCircle className="h-3 w-3" /> },
-  sent:             { label: 'Sent',               color: 'bg-cyan-900/60 text-cyan-300 border-cyan-600/40',         icon: <Send className="h-3 w-3" /> },
-  rejected:         { label: 'Rejected',           color: 'bg-red-900/60 text-red-300 border-red-600/40',            icon: <XCircle className="h-3 w-3" /> },
-  skipped:          { label: 'Skipped',            color: 'bg-gray-800/60 text-gray-400 border-gray-600/40',         icon: <XCircle className="h-3 w-3" /> },
+  pending:           { label: 'Pending',       color: 'bg-warning/20 text-warning border-warning/30',       icon: <Clock className="h-3 w-3" /> },
+  analyzing:         { label: 'Analyzing',     color: 'bg-blue-500/20 text-blue-400 border-blue-500/30',    icon: <Eye className="h-3 w-3" /> },
+  awaiting_approval: { label: 'Needs Approval',color: 'bg-orange-500/20 text-orange-400 border-orange-500/30', icon: <AlertTriangle className="h-3 w-3" /> },
+  approved:          { label: 'Approved',      color: 'bg-success/20 text-success border-success/30',       icon: <CheckCircle className="h-3 w-3" /> },
+  sent:              { label: 'Sent',          color: 'bg-primary/20 text-primary border-primary/30',       icon: <Send className="h-3 w-3" /> },
+  rejected:          { label: 'Rejected',      color: 'bg-destructive/20 text-destructive border-destructive/30', icon: <XCircle className="h-3 w-3" /> },
+  skipped:           { label: 'Skipped',       color: 'bg-muted/20 text-muted-foreground border-muted/30',  icon: <XCircle className="h-3 w-3" /> },
 };
 
-const clientConfig: Record<string, { label: string; color: string }> = {
-  ascend_lc:          { label: 'Ascend LC',          color: 'bg-cyan-900/40 text-cyan-300 border-cyan-700/40' },
-  favorite_logistics: { label: 'Fav Logistics',       color: 'bg-green-900/40 text-green-300 border-green-700/40' },
-  race_technik:       { label: 'Race Technik',        color: 'bg-purple-900/40 text-purple-300 border-purple-700/40' },
+const clientColors: Record<string, string> = {
+  ascend_lc:          'bg-blue-500/20 text-blue-300 border-blue-500/30',
+  favorite_logistics: 'bg-success/20 text-success border-success/30',
+  race_technik:       'bg-purple-500/20 text-purple-300 border-purple-500/30',
+};
+
+const clientLabels: Record<string, string> = {
+  ascend_lc:          'Ascend LC',
+  favorite_logistics: 'Fav Logistics',
+  race_technik:       'Race Technik',
 };
 
 export const EmailQueue: React.FC = () => {
@@ -52,9 +57,7 @@ export const EmailQueue: React.FC = () => {
       })
       .subscribe();
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return () => { supabase.removeChannel(channel); };
   }, []);
 
   const fetchEmailQueue = async () => {
@@ -66,7 +69,6 @@ export const EmailQueue: React.FC = () => {
 
     if (!error) {
       setEmails((data as EmailItem[]) || []);
-      // Keep selected email in sync
       if (selectedEmail) {
         const updated = data?.find(e => e.id === selectedEmail.id);
         if (updated) setSelectedEmail(updated as EmailItem);
@@ -78,15 +80,12 @@ export const EmailQueue: React.FC = () => {
   const handleApprove = async (email: EmailItem) => {
     setApproving(email.id);
     try {
-      // Update email status to approved
       const { error: emailErr } = await supabase
         .from('email_queue')
         .update({ status: 'approved' })
         .eq('id', email.id);
-
       if (emailErr) throw emailErr;
 
-      // Create approval record
       await supabase.from('approvals').insert({
         email_queue_id: email.id,
         approval_type: 'routine_response',
@@ -95,7 +94,6 @@ export const EmailQueue: React.FC = () => {
         approved_by: 'Josh',
       });
 
-      // Write to audit log
       await supabase.from('audit_log').insert({
         agent: 'Sophia CSM',
         action: 'email_approved',
@@ -103,9 +101,9 @@ export const EmailQueue: React.FC = () => {
         status: 'success',
       });
 
-      toast.success('Email approved — Sophia will send the response');
+      toast.success('Email approved');
       setSelectedEmail(null);
-    } catch (err) {
+    } catch {
       toast.error('Failed to approve email');
     } finally {
       setApproving(null);
@@ -119,7 +117,6 @@ export const EmailQueue: React.FC = () => {
         .from('email_queue')
         .update({ status: 'rejected' })
         .eq('id', email.id);
-
       if (emailErr) throw emailErr;
 
       await supabase.from('approvals').insert({
@@ -137,9 +134,9 @@ export const EmailQueue: React.FC = () => {
         status: 'success',
       });
 
-      toast.info('Email rejected — Sophia will hold the response');
+      toast.info('Email rejected');
       setSelectedEmail(null);
-    } catch (err) {
+    } catch {
       toast.error('Failed to reject email');
     } finally {
       setApproving(null);
@@ -147,150 +144,136 @@ export const EmailQueue: React.FC = () => {
   };
 
   const pendingApproval = emails.filter(e => e.status === 'awaiting_approval').length;
-  const sentToday = emails.filter(e => e.status === 'sent').length;
+  const sentCount = emails.filter(e => e.status === 'sent').length;
 
   return (
     <div className="space-y-4">
-      {/* Stats row */}
-      <div className="grid grid-cols-3 gap-3">
-        <div className="bg-card border border-orange-600/30 rounded-md px-3 py-2">
-          <p className="font-mono text-[10px] text-muted-foreground uppercase tracking-wider">Needs Approval</p>
-          <p className="font-display text-xl text-orange-400">{pendingApproval}</p>
-        </div>
-        <div className="bg-card border border-border/50 rounded-md px-3 py-2">
-          <p className="font-mono text-[10px] text-muted-foreground uppercase tracking-wider">Total In Queue</p>
-          <p className="font-display text-xl text-foreground">{emails.length}</p>
-        </div>
-        <div className="bg-card border border-cyan-600/30 rounded-md px-3 py-2">
-          <p className="font-mono text-[10px] text-muted-foreground uppercase tracking-wider">Sent</p>
-          <p className="font-display text-xl text-cyan-400">{sentToday}</p>
-        </div>
+      {/* Stats */}
+      <div className="grid grid-cols-3 gap-2 md:gap-3">
+        {[
+          { label: 'Needs Approval', value: pendingApproval, color: 'text-orange-400' },
+          { label: 'In Queue', value: emails.length, color: 'text-card-foreground' },
+          { label: 'Sent', value: sentCount, color: 'text-primary' },
+        ].map(s => (
+          <div key={s.label} className="rounded-xl bg-card px-3 md:px-4 py-3">
+            <p className="text-[9px] md:text-[10px] text-card-foreground/40 uppercase tracking-wider">{s.label}</p>
+            <p className={cn("text-xl md:text-2xl font-bold mt-0.5", s.color)}>{s.value}</p>
+          </div>
+        ))}
       </div>
 
-      <Card className="bg-card border-border/50 glow-box-cyan">
-        <CardHeader className="pb-3">
-          <div className="flex items-center gap-2">
-            <Mail className="h-4 w-4 text-primary" />
-            <CardTitle className="text-sm font-display tracking-wide">Email Queue — Sophia CSM</CardTitle>
-          </div>
-          <CardDescription className="font-mono text-[10px] text-muted-foreground">
-            Ascend LC · Favorite Logistics · Race Technik
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {loading ? (
-            <div className="text-center text-muted-foreground font-mono text-xs py-8">Loading queue...</div>
-          ) : (
-            <ScrollArea className="h-72">
-              <div className="space-y-1.5 pr-2">
-                {emails.length === 0 ? (
-                  <div className="text-center text-muted-foreground font-mono text-xs py-8">
-                    No emails in queue — Sophia is watching
-                  </div>
-                ) : (
-                  emails.map(email => {
-                    const sc = statusConfig[email.status || 'pending'];
-                    const cc = clientConfig[email.client || ''];
-                    const isSelected = selectedEmail?.id === email.id;
-                    return (
-                      <div
-                        key={email.id}
-                        onClick={() => setSelectedEmail(isSelected ? null : email)}
-                        className={`p-3 rounded-md border cursor-pointer transition-all duration-200 ${
-                          isSelected
-                            ? 'border-primary/50 bg-secondary/80'
-                            : 'border-border/40 bg-secondary/20 hover:border-primary/30 hover:bg-secondary/50'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs font-mono text-primary truncate">{email.from_email}</p>
-                            <p className="text-[11px] text-foreground/70 truncate mt-0.5">{email.subject}</p>
-                          </div>
-                          <div className="flex items-center gap-1.5 shrink-0">
-                            {cc && (
-                              <Badge className={`${cc.color} border text-[9px] font-mono px-1.5 py-0`}>
-                                {cc.label}
-                              </Badge>
-                            )}
-                            {sc && (
-                              <Badge className={`${sc.color} border text-[9px] font-mono px-1.5 py-0 flex items-center gap-1`}>
-                                {sc.icon}
-                                {sc.label}
-                              </Badge>
-                            )}
-                          </div>
-                        </div>
-                        {email.status === 'awaiting_approval' && (
-                          <div className="flex gap-2 mt-2" onClick={e => e.stopPropagation()}>
-                            <Button
-                              size="sm"
-                              onClick={() => handleApprove(email)}
-                              disabled={approving === email.id}
-                              className="h-6 text-[10px] font-mono bg-green-900 hover:bg-green-800 text-green-200 border border-green-700/50"
-                            >
-                              <CheckCircle className="h-3 w-3 mr-1" />
-                              Approve
-                            </Button>
-                            <Button
-                              size="sm"
-                              onClick={() => handleReject(email)}
-                              disabled={approving === email.id}
-                              className="h-6 text-[10px] font-mono bg-red-900 hover:bg-red-800 text-red-200 border border-red-700/50"
-                            >
-                              <XCircle className="h-3 w-3 mr-1" />
-                              Reject
-                            </Button>
-                          </div>
+      {/* Queue list */}
+      <div className="rounded-2xl bg-card p-5">
+        <div className="flex items-center gap-2 mb-4">
+          <Mail className="h-4 w-4 text-primary" />
+          <h3 className="text-sm font-semibold text-card-foreground">Email Queue — Sophia CSM</h3>
+        </div>
+
+        {loading ? (
+          <p className="text-xs text-card-foreground/40 text-center py-8">Loading queue...</p>
+        ) : (
+          <div className="space-y-1.5 max-h-72 overflow-auto dark-scrollbar">
+            {emails.length === 0 ? (
+              <p className="text-xs text-card-foreground/40 text-center py-8">
+                No emails in queue
+              </p>
+            ) : (
+              emails.map(email => {
+                const sc = statusConfig[email.status || 'pending'];
+                const isSelected = selectedEmail?.id === email.id;
+                return (
+                  <div
+                    key={email.id}
+                    onClick={() => setSelectedEmail(isSelected ? null : email)}
+                    className={cn(
+                      "p-3 rounded-xl cursor-pointer transition-all",
+                      isSelected
+                        ? "bg-white/10 ring-1 ring-primary/40"
+                        : "hover:bg-white/5"
+                    )}
+                  >
+                    <div className="flex items-start sm:items-center justify-between gap-2 flex-col sm:flex-row">
+                      <div className="flex-1 min-w-0 w-full">
+                        <p className="text-xs font-medium text-card-foreground truncate">{email.from_email}</p>
+                        <p className="text-[11px] text-card-foreground/50 truncate mt-0.5">{email.subject}</p>
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {email.client && clientLabels[email.client] && (
+                          <Badge className={cn("border text-[9px] px-1.5 py-0", clientColors[email.client])}>
+                            {clientLabels[email.client]}
+                          </Badge>
+                        )}
+                        {sc && (
+                          <Badge className={cn("border text-[9px] px-1.5 py-0 flex items-center gap-1", sc.color)}>
+                            {sc.icon}
+                            {sc.label}
+                          </Badge>
                         )}
                       </div>
-                    );
-                  })
-                )}
-              </div>
-            </ScrollArea>
-          )}
-        </CardContent>
-      </Card>
+                    </div>
+                    {email.status === 'awaiting_approval' && (
+                      <div className="flex gap-2 mt-2.5" onClick={e => e.stopPropagation()}>
+                        <Button
+                          size="sm"
+                          onClick={() => handleApprove(email)}
+                          disabled={approving === email.id}
+                          className="h-7 text-[10px] font-medium bg-success/20 hover:bg-success/30 text-success border border-success/30 rounded-lg"
+                        >
+                          <CheckCircle className="h-3 w-3 mr-1" />
+                          Approve
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={() => handleReject(email)}
+                          disabled={approving === email.id}
+                          className="h-7 text-[10px] font-medium bg-destructive/20 hover:bg-destructive/30 text-destructive border border-destructive/30 rounded-lg"
+                        >
+                          <XCircle className="h-3 w-3 mr-1" />
+                          Reject
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })
+            )}
+          </div>
+        )}
+      </div>
 
+      {/* Detail panel */}
       {selectedEmail && (
-        <Card className="bg-card border-primary/30 glow-box-cyan">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-display tracking-wide text-primary">
-              Email Detail
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
+        <div className="rounded-2xl bg-card p-5 ring-1 ring-primary/20">
+          <h4 className="text-sm font-semibold text-primary mb-3">Email Detail</h4>
+          <div className="space-y-3">
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <p className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">From</p>
-                <p className="text-xs font-mono text-foreground mt-0.5">{selectedEmail.from_email}</p>
+                <p className="text-[10px] text-card-foreground/40 uppercase tracking-wider">From</p>
+                <p className="text-xs text-card-foreground mt-0.5">{selectedEmail.from_email}</p>
               </div>
               <div>
-                <p className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">To</p>
-                <p className="text-xs font-mono text-foreground mt-0.5">{selectedEmail.to_email}</p>
+                <p className="text-[10px] text-card-foreground/40 uppercase tracking-wider">To</p>
+                <p className="text-xs text-card-foreground mt-0.5">{selectedEmail.to_email}</p>
               </div>
             </div>
             <div>
-              <p className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">Subject</p>
-              <p className="text-xs font-mono text-foreground mt-0.5">{selectedEmail.subject}</p>
+              <p className="text-[10px] text-card-foreground/40 uppercase tracking-wider">Subject</p>
+              <p className="text-xs text-card-foreground mt-0.5">{selectedEmail.subject}</p>
             </div>
             {selectedEmail.body && (
               <div>
-                <p className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">Body</p>
-                <ScrollArea className="h-24 mt-0.5">
-                  <p className="text-xs text-foreground/80 font-mono whitespace-pre-wrap">{selectedEmail.body}</p>
-                </ScrollArea>
+                <p className="text-[10px] text-card-foreground/40 uppercase tracking-wider">Body</p>
+                <p className="text-xs text-card-foreground/70 mt-0.5 max-h-24 overflow-auto dark-scrollbar whitespace-pre-wrap">
+                  {selectedEmail.body}
+                </p>
               </div>
             )}
             {selectedEmail.analysis && (
               <div>
-                <p className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">Sophia's Analysis</p>
-                <ScrollArea className="h-24 mt-0.5">
-                  <pre className="text-[10px] text-accent font-mono bg-secondary/50 p-2 rounded">
-                    {JSON.stringify(selectedEmail.analysis, null, 2)}
-                  </pre>
-                </ScrollArea>
+                <p className="text-[10px] text-card-foreground/40 uppercase tracking-wider">Analysis</p>
+                <pre className="text-[10px] text-primary/80 bg-white/5 p-2 rounded-lg mt-0.5 max-h-24 overflow-auto dark-scrollbar">
+                  {JSON.stringify(selectedEmail.analysis, null, 2)}
+                </pre>
               </div>
             )}
             {selectedEmail.status === 'awaiting_approval' && (
@@ -298,23 +281,23 @@ export const EmailQueue: React.FC = () => {
                 <Button
                   onClick={() => handleApprove(selectedEmail)}
                   disabled={approving === selectedEmail.id}
-                  className="flex-1 bg-green-900 hover:bg-green-800 text-green-200 border border-green-700/50 font-mono text-xs"
+                  className="flex-1 bg-success/20 hover:bg-success/30 text-success border border-success/30 rounded-lg text-xs"
                 >
                   <CheckCircle className="h-4 w-4 mr-2" />
-                  Approve — Send Response
+                  Approve
                 </Button>
                 <Button
                   onClick={() => handleReject(selectedEmail)}
                   disabled={approving === selectedEmail.id}
-                  className="flex-1 bg-red-900 hover:bg-red-800 text-red-200 border border-red-700/50 font-mono text-xs"
+                  className="flex-1 bg-destructive/20 hover:bg-destructive/30 text-destructive border border-destructive/30 rounded-lg text-xs"
                 >
                   <XCircle className="h-4 w-4 mr-2" />
-                  Reject — Hold Response
+                  Reject
                 </Button>
               </div>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       )}
     </div>
   );
