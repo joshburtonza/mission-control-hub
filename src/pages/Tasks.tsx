@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
-import { ListTodo, Zap, CheckCircle2, XCircle, Clock, Loader2, RefreshCw } from 'lucide-react';
+import { ListTodo, Zap, CheckCircle2, XCircle, Clock, Loader2, RefreshCw, Plus, X, Send } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 
 interface TaskItem {
   id: string;
@@ -18,11 +19,11 @@ interface TaskItem {
 }
 
 const statusConfig: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
-  queued:    { label: 'Queued',    color: 'bg-warning/20 text-warning border-warning/30',         icon: <Clock className="h-3 w-3" /> },
-  executing: { label: 'Running',  color: 'bg-primary/20 text-primary border-primary/30',         icon: <Loader2 className="h-3 w-3 animate-spin" /> },
-  completed: { label: 'Completed',color: 'bg-success/20 text-success border-success/30',         icon: <CheckCircle2 className="h-3 w-3" /> },
-  failed:    { label: 'Failed',   color: 'bg-destructive/20 text-destructive border-destructive/30', icon: <XCircle className="h-3 w-3" /> },
-  skipped:   { label: 'Skipped',  color: 'bg-muted/20 text-muted-foreground border-muted/30',    icon: <XCircle className="h-3 w-3" /> },
+  queued:    { label: 'Queued',    color: 'bg-warning/20 text-warning border-warning/30',             icon: <Clock className="h-3 w-3" /> },
+  executing: { label: 'Running',   color: 'bg-primary/20 text-primary border-primary/30',             icon: <Loader2 className="h-3 w-3 animate-spin" /> },
+  completed: { label: 'Completed', color: 'bg-success/20 text-success border-success/30',             icon: <CheckCircle2 className="h-3 w-3" /> },
+  failed:    { label: 'Failed',    color: 'bg-destructive/20 text-destructive border-destructive/30', icon: <XCircle className="h-3 w-3" /> },
+  skipped:   { label: 'Skipped',   color: 'bg-muted/20 text-muted-foreground border-muted/30',        icon: <XCircle className="h-3 w-3" /> },
 };
 
 const taskTypeLabels: Record<string, string> = {
@@ -45,6 +46,9 @@ export default function Tasks() {
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedTask, setSelectedTask] = useState<TaskItem | null>(null);
+  const [showForm, setShowForm] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [form, setForm] = useState({ title: '', prompt: '' });
 
   useEffect(() => {
     fetchTasks();
@@ -65,17 +69,99 @@ export default function Tasks() {
     setLoading(false);
   };
 
-  const byStatus = (status: string) => tasks.filter(t => t.status === status);
+  const submitTask = async () => {
+    if (!form.title.trim()) { toast.error('Task title required'); return; }
+    setSubmitting(true);
+    try {
+      const { error } = await supabase.from('task_queue').insert({
+        agent: 'Claude Code',
+        task_type: 'task_execution',
+        status: 'queued',
+        payload: {
+          title: form.title.trim(),
+          prompt: form.prompt.trim() || form.title.trim(),
+        },
+      });
+      if (error) throw error;
+      setForm({ title: '', prompt: '' });
+      setShowForm(false);
+      toast.success('Task queued — Claude will pick it up within 60s');
+    } catch (e: any) {
+      toast.error('Failed to queue task');
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
-  const totalToday = tasks.filter(t => {
-    if (!t.created_at) return false;
-    const d = new Date(t.created_at);
-    const now = new Date();
-    return d.toDateString() === now.toDateString();
-  }).length;
+  const byStatus = (status: string) => tasks.filter(t => t.status === status);
 
   return (
     <div className="space-y-6">
+      {/* Header with New Task button */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xs uppercase tracking-wider text-muted-foreground font-medium">Task Queue</h2>
+          <p className="text-[10px] text-card-foreground/30 mt-0.5">
+            {byStatus('queued').length} queued · {byStatus('executing').length} running
+          </p>
+        </div>
+        <button
+          onClick={() => setShowForm(!showForm)}
+          className={cn(
+            'flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all',
+            showForm
+              ? 'bg-white/10 text-card-foreground'
+              : 'bg-primary/20 hover:bg-primary/30 text-primary border border-primary/30'
+          )}
+        >
+          {showForm ? <X className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
+          {showForm ? 'Cancel' : 'Queue Task'}
+        </button>
+      </div>
+
+      {/* New Task Form */}
+      {showForm && (
+        <div className="rounded-2xl bg-card p-5 ring-1 ring-primary/30">
+          <div className="flex items-center gap-2 mb-4">
+            <Zap className="h-4 w-4 text-primary" />
+            <span className="text-sm font-semibold text-card-foreground">New Task for Claude Code</span>
+          </div>
+          <div className="space-y-3">
+            <div>
+              <p className="text-[10px] text-card-foreground/40 uppercase tracking-wider mb-1.5">Title</p>
+              <input
+                type="text"
+                placeholder="e.g. Summarise this week's outreach performance"
+                value={form.title}
+                onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-card-foreground placeholder:text-card-foreground/20 focus:outline-none focus:border-primary/50"
+                onKeyDown={e => e.key === 'Enter' && !e.shiftKey && submitTask()}
+              />
+            </div>
+            <div>
+              <p className="text-[10px] text-card-foreground/40 uppercase tracking-wider mb-1.5">
+                Instructions <span className="normal-case text-card-foreground/20">(optional — defaults to title)</span>
+              </p>
+              <textarea
+                placeholder="More detail about what you want done..."
+                value={form.prompt}
+                onChange={e => setForm(f => ({ ...f, prompt: e.target.value }))}
+                rows={3}
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-card-foreground placeholder:text-card-foreground/20 focus:outline-none focus:border-primary/50 resize-none"
+              />
+            </div>
+            <button
+              onClick={submitTask}
+              disabled={submitting || !form.title.trim()}
+              className="flex items-center gap-2 px-4 py-2 bg-primary/20 hover:bg-primary/30 text-primary border border-primary/30 rounded-xl text-xs font-medium transition-all disabled:opacity-40"
+            >
+              <Send className="h-3.5 w-3.5" />
+              {submitting ? 'Queuing...' : 'Queue for Claude'}
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Stats */}
       <div className="grid grid-cols-3 md:grid-cols-5 gap-2 md:gap-3">
         {[
@@ -124,7 +210,7 @@ export default function Tasks() {
                         )}
                       >
                         <p className="text-xs text-card-foreground/80 truncate">
-                          {taskTypeLabels[task.task_type || ''] || task.task_type}
+                          {task.payload?.title || taskTypeLabels[task.task_type || ''] || task.task_type}
                         </p>
                         <p className="text-[10px] text-card-foreground/30 truncate mt-0.5">
                           {task.agent || 'Unknown'}
@@ -151,9 +237,16 @@ export default function Tasks() {
       {/* Task detail */}
       {selectedTask && (
         <div className="rounded-2xl bg-card p-5 ring-1 ring-primary/20">
-          <div className="flex items-center gap-2 mb-4">
-            <Zap className="h-4 w-4 text-primary" />
-            <h3 className="text-sm font-semibold text-card-foreground">Task Detail</h3>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Zap className="h-4 w-4 text-primary" />
+              <h3 className="text-sm font-semibold text-card-foreground">
+                {selectedTask.payload?.title || 'Task Detail'}
+              </h3>
+            </div>
+            <button onClick={() => setSelectedTask(null)} className="text-card-foreground/30 hover:text-card-foreground">
+              <X className="h-4 w-4" />
+            </button>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
             {[
@@ -168,19 +261,48 @@ export default function Tasks() {
               </div>
             ))}
           </div>
-          {selectedTask.payload && (
+
+          {/* Prompt */}
+          {selectedTask.payload?.prompt && (
+            <div className="mb-3">
+              <p className="text-[10px] text-card-foreground/40 uppercase tracking-wider mb-1">Prompt</p>
+              <p className="text-xs text-card-foreground/70 bg-white/5 p-3 rounded-xl leading-relaxed">
+                {selectedTask.payload.prompt}
+              </p>
+            </div>
+          )}
+
+          {/* Claude's output — human readable */}
+          {selectedTask.result?.output && (
+            <div>
+              <p className="text-[10px] text-success/60 uppercase tracking-wider mb-1">Claude's Response</p>
+              <div className="text-xs text-card-foreground/80 bg-success/5 border border-success/10 p-3 rounded-xl leading-relaxed whitespace-pre-wrap max-h-64 overflow-auto dark-scrollbar">
+                {selectedTask.result.output}
+              </div>
+              {selectedTask.completed_at && (
+                <p className="text-[9px] text-card-foreground/20 mt-1.5">
+                  Completed {new Date(selectedTask.completed_at).toLocaleString()}
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Error output */}
+          {selectedTask.result?.error && (
+            <div>
+              <p className="text-[10px] text-destructive/60 uppercase tracking-wider mb-1">Error</p>
+              <p className="text-xs text-destructive/80 bg-destructive/5 border border-destructive/10 p-3 rounded-xl">
+                {selectedTask.result.error}
+              </p>
+            </div>
+          )}
+
+          {/* Raw payload for non-task_execution types */}
+          {selectedTask.task_type !== 'task_execution' && selectedTask.payload && (
             <div className="mb-3">
               <p className="text-[10px] text-card-foreground/40 uppercase tracking-wider">Payload</p>
               <pre className="text-[10px] text-primary/80 bg-white/5 p-2 rounded-lg mt-0.5 max-h-20 overflow-auto dark-scrollbar">
                 {JSON.stringify(selectedTask.payload, null, 2)}
-              </pre>
-            </div>
-          )}
-          {selectedTask.result && (
-            <div>
-              <p className="text-[10px] text-card-foreground/40 uppercase tracking-wider">Result</p>
-              <pre className="text-[10px] text-success/80 bg-white/5 p-2 rounded-lg mt-0.5 max-h-20 overflow-auto dark-scrollbar">
-                {JSON.stringify(selectedTask.result, null, 2)}
               </pre>
             </div>
           )}
