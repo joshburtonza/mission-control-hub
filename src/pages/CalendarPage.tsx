@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { Calendar, Clock, Plus, Trash2, Bell, X, ChevronRight } from 'lucide-react';
+import { Calendar, Clock, Plus, Trash2, Bell, X, ChevronRight, Video, MapPin, Users, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface Reminder {
@@ -20,6 +20,19 @@ interface Reminder {
   read_at: string | null;
 }
 
+interface CalendarEvent {
+  id: string;
+  title: string;
+  description: string | null;
+  start_at: string;
+  end_at: string | null;
+  all_day: boolean;
+  location: string | null;
+  attendees: string[];
+  meet_link: string | null;
+  status: string;
+}
+
 const PRIORITY_COLORS: Record<string, string> = {
   urgent: 'bg-red-900/40 text-red-300 border-red-700/40',
   high:   'bg-orange-900/40 text-orange-300 border-orange-700/40',
@@ -27,33 +40,63 @@ const PRIORITY_COLORS: Record<string, string> = {
   low:    'bg-gray-800/40 text-gray-400 border-gray-700/40',
 };
 
-// Upcoming events from cron schedules (static + dynamic)
-const SCHEDULED_EVENTS = [
-  { time: '07:00', label: 'Video Scripts',      agent: 'Video Bot',     recurrence: 'Daily', color: 'text-purple-400' },
-  { time: '08:00', label: 'Discord Engagement', agent: 'Alex Claww',    recurrence: 'Daily', color: 'text-cyan-400' },
-  { time: '08:30', label: 'Meeting: Adriaan',    agent: 'Reminder',      recurrence: 'Feb 20', color: 'text-yellow-400' },
-  { time: '09:00', label: 'Cold Outreach',       agent: 'Alex Outreach', recurrence: 'Mon-Fri', color: 'text-orange-400' },
-  { time: '09:00', label: 'Repo Sync',           agent: 'Repo Watcher',  recurrence: 'Daily', color: 'text-blue-400' },
-  { time: '12:00', label: 'Daily Heartbeat',    agent: 'Heartbeat',     recurrence: 'Daily', color: 'text-green-400' },
-  { time: '18:00', label: 'Memory Curation',    agent: 'Memory Bot',    recurrence: 'Sundays', color: 'text-yellow-400' },
+const AGENT_SCHEDULE = [
+  { time: '07:30', label: 'Morning Brief',     agent: 'Briefing Bot',  recurrence: 'Daily',     color: 'text-yellow-400' },
+  { time: '07:00', label: 'Video Scripts',     agent: 'Video Bot',     recurrence: 'Daily',     color: 'text-purple-400' },
+  { time: '07:00', label: 'Discord Nudge',     agent: 'Alex Claww',    recurrence: 'Daily',     color: 'text-cyan-400' },
+  { time: '09:00', label: 'Cold Outreach',     agent: 'Alex Outreach', recurrence: 'Mon–Fri',   color: 'text-orange-400' },
+  { time: '09:00', label: 'Repo Sync',         agent: 'Repo Watcher',  recurrence: 'Daily',     color: 'text-blue-400' },
+  { time: '09:00', label: 'Pending Nudge',     agent: 'Nudge Bot',     recurrence: 'Daily',     color: 'text-red-400' },
+  { time: '12:00', label: 'Heartbeat',         agent: 'Heartbeat',     recurrence: 'Daily',     color: 'text-green-400' },
+  { time: '15:00', label: 'Pending Nudge',     agent: 'Nudge Bot',     recurrence: 'Daily',     color: 'text-red-400' },
+  { time: '18:00', label: 'Weekly Memory',     agent: 'Memory Bot',    recurrence: 'Sundays',   color: 'text-yellow-400' },
+  { time: '21:00', label: 'GitHub Sync',       agent: 'Alex Claww',    recurrence: 'Nightly',   color: 'text-green-400' },
+  { time: '21:50', label: 'Daily Log Flush',   agent: 'Memory Bot',    recurrence: 'Nightly',   color: 'text-gray-400' },
+  { time: '01:00', label: 'State Snapshot',    agent: 'System',        recurrence: 'Nightly',   color: 'text-gray-400' },
 ];
+
+function formatEventTime(iso: string, allDay: boolean): string {
+  if (allDay) return 'All day';
+  const d = new Date(iso);
+  return d.toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Johannesburg' });
+}
+
+function formatEventDate(iso: string): string {
+  const d = new Date(iso);
+  const today = new Date();
+  const tomorrow = new Date(today);
+  tomorrow.setDate(today.getDate() + 1);
+
+  if (d.toDateString() === today.toDateString()) return 'Today';
+  if (d.toDateString() === tomorrow.toDateString()) return 'Tomorrow';
+  return d.toLocaleDateString('en-ZA', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'Africa/Johannesburg' });
+}
+
+function minsUntil(iso: string): number {
+  return Math.max(0, Math.floor((new Date(iso).getTime() - Date.now()) / 60000));
+}
 
 export default function CalendarPage() {
   const [reminders, setReminders] = useState<Reminder[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [loadingReminders, setLoadingReminders] = useState(true);
+  const [loadingEvents, setLoadingEvents] = useState(true);
+  const [calendarEnabled, setCalendarEnabled] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ title: '', body: '', priority: 'normal', due: '' });
 
   const now = new Date();
-  const dateStr = now.toLocaleDateString('en-ZA', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-  const timeStr = now.toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' });
+  const dateStr = now.toLocaleDateString('en-ZA', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'Africa/Johannesburg' });
+  const timeStr = now.toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Johannesburg' });
 
   useEffect(() => {
     fetchReminders();
+    fetchCalendarEvents();
     const channel = supabase
-      .channel('reminders_live')
+      .channel('calendar_live')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications' }, fetchReminders)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'calendar_events' }, fetchCalendarEvents)
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, []);
@@ -66,7 +109,30 @@ export default function CalendarPage() {
       .neq('status', 'dismissed')
       .order('created_at', { ascending: false });
     if (!error) setReminders((data as Reminder[]) || []);
-    setLoading(false);
+    setLoadingReminders(false);
+  };
+
+  const fetchCalendarEvents = async () => {
+    const now = new Date().toISOString();
+    const in7days = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+    const { data, error } = await supabase
+      .from('calendar_events' as any)
+      .select('*')
+      .gte('start_at', now)
+      .lte('start_at', in7days)
+      .neq('status', 'cancelled')
+      .order('start_at', { ascending: true })
+      .limit(20);
+
+    if (error) {
+      // Table doesn't exist yet — Calendar API not set up
+      if (error.code === 'PGRST205' || error.message?.includes('calendar_events')) {
+        setCalendarEnabled(false);
+      }
+    } else {
+      setEvents((data as CalendarEvent[]) || []);
+    }
+    setLoadingEvents(false);
   };
 
   const createReminder = async () => {
@@ -103,6 +169,14 @@ export default function CalendarPage() {
     if (mins < 60) return `${mins}m ago`;
     return `${Math.floor(mins / 60)}h ago`;
   };
+
+  // Group calendar events by date
+  const eventsByDate = events.reduce<Record<string, CalendarEvent[]>>((acc, e) => {
+    const label = formatEventDate(e.start_at);
+    if (!acc[label]) acc[label] = [];
+    acc[label].push(e);
+    return acc;
+  }, {});
 
   return (
     <div className="space-y-4 pb-24 sm:pb-6">
@@ -167,28 +241,86 @@ export default function CalendarPage() {
         </Card>
       )}
 
-      {/* Automation Schedule */}
+      {/* Google Calendar Events */}
       <Card className="border-border/50 bg-card">
         <CardHeader className="pb-3">
           <CardTitle className="text-sm font-display tracking-wide flex items-center gap-2">
-            <Clock className="h-4 w-4 text-primary" />
-            Automation Schedule
+            <Calendar className="h-4 w-4 text-primary" />
+            Upcoming Events
+            {!calendarEnabled && (
+              <Badge variant="outline" className="font-mono text-[9px] border-yellow-600/40 text-yellow-400 ml-auto">
+                Setup needed
+              </Badge>
+            )}
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-1.5">
-            {SCHEDULED_EVENTS.map((event, i) => (
-              <div key={i} className="flex items-center gap-3 p-2 rounded hover:bg-secondary/20 transition-colors">
-                <span className="font-mono text-[10px] text-muted-foreground w-10 shrink-0">{event.time}</span>
-                <ChevronRight className={cn('h-3 w-3 shrink-0', event.color)} />
-                <div className="flex-1 min-w-0">
-                  <p className="font-mono text-xs text-foreground">{event.label}</p>
-                  <p className="font-mono text-[9px] text-muted-foreground">{event.agent}</p>
+          {loadingEvents ? (
+            <div className="font-mono text-xs text-muted-foreground animate-pulse py-4 text-center">Loading...</div>
+          ) : !calendarEnabled ? (
+            <div className="py-4 text-center space-y-2">
+              <p className="font-mono text-xs text-muted-foreground">Google Calendar not connected yet.</p>
+              <p className="font-mono text-[10px] text-muted-foreground/60">
+                Enable the Google Calendar API at console.cloud.google.com → project 692242821701
+              </p>
+            </div>
+          ) : events.length === 0 ? (
+            <p className="font-mono text-xs text-muted-foreground text-center py-6">No upcoming events in the next 7 days</p>
+          ) : (
+            <div className="space-y-4">
+              {Object.entries(eventsByDate).map(([dateLabel, dayEvents]) => (
+                <div key={dateLabel}>
+                  <p className="font-mono text-[9px] text-muted-foreground uppercase tracking-widest mb-2 border-b border-border/30 pb-1">
+                    {dateLabel}
+                  </p>
+                  <div className="space-y-2">
+                    {dayEvents.map(e => {
+                      const mins = minsUntil(e.start_at);
+                      const imminent = mins <= 60;
+                      return (
+                        <div key={e.id} className={cn(
+                          'flex items-start gap-3 p-2.5 rounded border transition-colors',
+                          imminent ? 'border-yellow-600/40 bg-yellow-900/10' : 'border-border/30 bg-secondary/10'
+                        )}>
+                          <div className={cn('h-2 w-2 rounded-full mt-1.5 shrink-0',
+                            imminent ? 'bg-yellow-400' : 'bg-primary/50')} />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-start justify-between gap-2">
+                              <p className="font-mono text-xs text-foreground">{e.title}</p>
+                              <span className="font-mono text-[9px] text-muted-foreground shrink-0">
+                                {formatEventTime(e.start_at, e.all_day)}
+                              </span>
+                            </div>
+                            {imminent && (
+                              <p className="font-mono text-[9px] text-yellow-400 mt-0.5">
+                                {mins === 0 ? 'Starting now' : `In ${mins} min`}
+                              </p>
+                            )}
+                            {e.location && (
+                              <p className="font-mono text-[9px] text-muted-foreground flex items-center gap-1 mt-0.5">
+                                <MapPin className="h-2.5 w-2.5" />{e.location}
+                              </p>
+                            )}
+                            {e.attendees?.length > 0 && (
+                              <p className="font-mono text-[9px] text-muted-foreground flex items-center gap-1 mt-0.5">
+                                <Users className="h-2.5 w-2.5" />{e.attendees.slice(0,3).join(', ')}{e.attendees.length > 3 ? ` +${e.attendees.length - 3}` : ''}
+                              </p>
+                            )}
+                            {e.meet_link && (
+                              <a href={e.meet_link} target="_blank" rel="noreferrer"
+                                className="font-mono text-[9px] text-primary flex items-center gap-1 mt-0.5 hover:underline">
+                                <Video className="h-2.5 w-2.5" />Join call
+                              </a>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
-                <span className="font-mono text-[9px] text-muted-foreground shrink-0">{event.recurrence}</span>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -206,7 +338,7 @@ export default function CalendarPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {loading ? (
+          {loadingReminders ? (
             <div className="font-mono text-xs text-muted-foreground animate-pulse py-4 text-center">Loading...</div>
           ) : reminders.length === 0 ? (
             <p className="font-mono text-xs text-muted-foreground text-center py-6">No reminders set</p>
@@ -220,8 +352,8 @@ export default function CalendarPage() {
                     <p className="font-mono text-xs text-foreground">{r.title}</p>
                     {r.body && <p className="font-mono text-[10px] text-muted-foreground mt-0.5">{r.body}</p>}
                     {r.metadata?.due && (
-                      <p className="font-mono text-[9px] text-warning mt-0.5">
-                        Due: {new Date(r.metadata.due).toLocaleString()}
+                      <p className="font-mono text-[9px] text-yellow-400 mt-0.5">
+                        Due: {new Date(r.metadata.due).toLocaleString('en-ZA', { timeZone: 'Africa/Johannesburg' })}
                       </p>
                     )}
                     <p className="font-mono text-[9px] text-muted-foreground/60 mt-0.5">{timeSince(r.created_at)}</p>
@@ -234,6 +366,31 @@ export default function CalendarPage() {
               ))}
             </div>
           )}
+        </CardContent>
+      </Card>
+
+      {/* Automation Schedule */}
+      <Card className="border-border/50 bg-card">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-display tracking-wide flex items-center gap-2">
+            <Clock className="h-4 w-4 text-primary" />
+            Automation Schedule
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-1.5">
+            {AGENT_SCHEDULE.map((event, i) => (
+              <div key={i} className="flex items-center gap-3 p-2 rounded hover:bg-secondary/20 transition-colors">
+                <span className="font-mono text-[10px] text-muted-foreground w-10 shrink-0">{event.time}</span>
+                <ChevronRight className={cn('h-3 w-3 shrink-0', event.color)} />
+                <div className="flex-1 min-w-0">
+                  <p className="font-mono text-xs text-foreground">{event.label}</p>
+                  <p className="font-mono text-[9px] text-muted-foreground">{event.agent}</p>
+                </div>
+                <span className="font-mono text-[9px] text-muted-foreground shrink-0">{event.recurrence}</span>
+              </div>
+            ))}
+          </div>
         </CardContent>
       </Card>
     </div>

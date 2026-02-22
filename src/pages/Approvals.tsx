@@ -26,6 +26,7 @@ interface EmailItem {
   analysis: any;
   requires_approval: boolean | null;
   to_email: string;
+  scheduled_send_at: string | null;
 }
 
 const clientLabels: Record<string, { label: string; color: string }> = {
@@ -55,7 +56,7 @@ export default function Approvals() {
 
   const fetchData = async () => {
     const [pendingRes, historyRes] = await Promise.all([
-      supabase.from('email_queue').select('*').eq('status', 'awaiting_approval').order('created_at', { ascending: false }),
+      supabase.from('email_queue').select('*').in('status', ['awaiting_approval', 'auto_pending']).order('created_at', { ascending: false }),
       supabase.from('email_queue').select('*').in('status', ['approved', 'rejected']).order('created_at', { ascending: false }).limit(20),
     ]);
     if (!pendingRes.error) setPending((pendingRes.data as EmailItem[]) || []);
@@ -90,6 +91,27 @@ export default function Approvals() {
     }
   };
 
+  const handleHold = async (email: EmailItem) => {
+    setProcessing(email.id);
+    try {
+      await supabase.from('email_queue').update({ status: 'awaiting_approval' }).eq('id', email.id);
+      toast.success('Held — moved to approval queue');
+    } catch {
+      toast.error('Failed to hold — try again');
+    } finally {
+      setProcessing(null);
+    }
+  };
+
+  const timeUntilSend = (ts: string | null) => {
+    if (!ts) return '~30m';
+    const diff = new Date(ts).getTime() - Date.now();
+    if (diff <= 0) return 'sending soon';
+    const mins = Math.ceil(diff / 60000);
+    if (mins < 60) return `${mins}m`;
+    return `${Math.floor(mins / 60)}h ${mins % 60}m`;
+  };
+
   const timeSince = (ts: string | null) => {
     if (!ts) return '—';
     const diff = Date.now() - new Date(ts).getTime();
@@ -101,6 +123,7 @@ export default function Approvals() {
 
   const EmailCard = ({ email, showActions }: { email: EmailItem; showActions: boolean }) => {
     const cc = clientLabels[email.client || ''];
+    const isAutoPending = email.status === 'auto_pending';
     return (
       <button
         type="button"
@@ -110,12 +133,19 @@ export default function Approvals() {
         }}
         className="w-full text-left"
       >
-        <Card className={`bg-card transition-colors hover:border-primary/40 ${showActions ? 'border-orange-600/40' : 'border-border/30'}`}>
+        <Card className={`bg-card transition-colors hover:border-primary/40 ${
+          isAutoPending ? 'border-cyan-600/40' : showActions ? 'border-orange-600/40' : 'border-border/30'
+        }`}>
           <CardContent className="p-4 space-y-3">
             <div className="flex items-start justify-between gap-2">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1 flex-wrap">
-                  {showActions && (
+                  {isAutoPending && (
+                    <Badge className="bg-cyan-900/60 text-cyan-300 border-cyan-600/40 border text-[9px] font-mono">
+                      <Clock className="h-2.5 w-2.5 mr-1" />AUTO-SEND {timeUntilSend(email.scheduled_send_at)}
+                    </Badge>
+                  )}
+                  {!isAutoPending && showActions && (
                     <Badge className="bg-orange-900/60 text-orange-300 border-orange-600/40 border text-[9px] font-mono">
                       <AlertTriangle className="h-2.5 w-2.5 mr-1" />ESCALATION
                     </Badge>
@@ -211,7 +241,12 @@ export default function Approvals() {
                   <div className="flex items-start justify-between gap-4">
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 mb-2 flex-wrap">
-                        {activeTab === 'pending' && (
+                        {activeTab === 'pending' && selected.status === 'auto_pending' && (
+                          <Badge className="bg-cyan-900/60 text-cyan-300 border-cyan-600/40 border text-[10px] font-mono">
+                            <Clock className="h-3 w-3 mr-1" />AUTO-SEND {timeUntilSend(selected.scheduled_send_at)}
+                          </Badge>
+                        )}
+                        {activeTab === 'pending' && selected.status === 'awaiting_approval' && (
                           <Badge className="bg-orange-900/60 text-orange-300 border-orange-600/40 border text-[10px] font-mono">
                             <AlertTriangle className="h-3 w-3 mr-1" />ESCALATION
                           </Badge>
@@ -275,7 +310,20 @@ export default function Approvals() {
                 </div>
               </div>
 
-              {activeTab === 'pending' && (
+              {activeTab === 'pending' && selected?.status === 'auto_pending' && (
+                <div className="p-4 sm:p-6 border-t border-border/40 bg-background">
+                  <DialogFooter>
+                    <Button
+                      onClick={() => selected && handleHold(selected)}
+                      disabled={!selected || processing === selected.id}
+                      className="w-full bg-cyan-900 hover:bg-cyan-800 text-cyan-200 border border-cyan-700/50 font-mono text-sm h-10"
+                    >
+                      <Clock className="h-4 w-4 mr-2" />Hold — move to approval queue
+                    </Button>
+                  </DialogFooter>
+                </div>
+              )}
+              {activeTab === 'pending' && selected?.status === 'awaiting_approval' && (
                 <div className="p-4 sm:p-6 border-t border-border/40 bg-background">
                   <DialogFooter className="flex flex-row gap-2 sm:justify-between">
                     <Button
