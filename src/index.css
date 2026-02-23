@@ -5,57 +5,97 @@
 @tailwind utilities;
 
 @layer base {
-  :root {
-    /* Deep dark navy — Vision UI style */
-    --background: 225 42% 8%;
-    --foreground: 214 32% 92%;
+  /* ── DARK MODE (default) — true black + chrome + electric blue ── */
+  :root,
+  .dark {
+    --background: 0 0% 4%;
+    --foreground: 0 0% 96%;
 
-    /* Cards — slightly lighter navy */
-    --card: 228 44% 12%;
-    --card-foreground: 214 32% 92%;
+    --card: 0 0% 8%;
+    --card-foreground: 0 0% 94%;
 
-    /* Popover matches cards */
-    --popover: 228 44% 12%;
-    --popover-foreground: 214 32% 92%;
+    --popover: 0 0% 8%;
+    --popover-foreground: 0 0% 94%;
 
-    /* Electric blue primary */
     --primary: 213 94% 57%;
     --primary-foreground: 0 0% 100%;
 
-    /* Mid navy secondary */
-    --secondary: 230 38% 18%;
-    --secondary-foreground: 214 30% 88%;
+    --secondary: 0 0% 13%;
+    --secondary-foreground: 0 0% 85%;
 
-    --muted: 228 35% 18%;
-    --muted-foreground: 220 18% 50%;
+    --muted: 0 0% 13%;
+    --muted-foreground: 0 0% 42%;
 
-    /* Cyan accent for highlights */
     --accent: 199 89% 48%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 228 38% 18%;
-    --input: 228 38% 18%;
+    --border: 0 0% 13%;
+    --input: 0 0% 13%;
     --ring: 213 94% 57%;
 
-    --radius: 1rem;
+    --radius: 0.875rem;
 
     --warning: 38 92% 50%;
     --warning-foreground: 0 0% 7%;
     --success: 160 84% 39%;
     --success-foreground: 0 0% 100%;
 
-    /* Sidebar — deepest navy */
-    --sidebar-background: 226 48% 6%;
-    --sidebar-foreground: 220 18% 50%;
+    --sidebar-background: 0 0% 2%;
+    --sidebar-foreground: 0 0% 40%;
     --sidebar-primary: 213 94% 57%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 228 44% 12%;
-    --sidebar-accent-foreground: 214 32% 92%;
-    --sidebar-border: 228 40% 14%;
+    --sidebar-accent: 0 0% 10%;
+    --sidebar-accent-foreground: 0 0% 92%;
+    --sidebar-border: 0 0% 10%;
     --sidebar-ring: 213 94% 57%;
+  }
+
+  /* ── LIGHT MODE — chrome white + electric blue ── */
+  .light {
+    --background: 210 17% 98%;
+    --foreground: 222 47% 11%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+
+    --primary: 213 94% 50%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 210 17% 95%;
+    --secondary-foreground: 222 47% 18%;
+
+    --muted: 210 17% 94%;
+    --muted-foreground: 215 16% 47%;
+
+    --accent: 199 89% 40%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 214 20% 91%;
+    --input: 214 20% 91%;
+    --ring: 213 94% 50%;
+
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+    --success: 160 84% 35%;
+    --success-foreground: 0 0% 100%;
+
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 215 16% 47%;
+    --sidebar-primary: 213 94% 50%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 210 17% 96%;
+    --sidebar-accent-foreground: 222 47% 11%;
+    --sidebar-border: 214 20% 91%;
+    --sidebar-ring: 213 94% 50%;
   }
 }
 
@@ -69,44 +109,81 @@
   }
 }
 
+/* ── Electric blue glow utilities ── */
 @layer utilities {
   .font-mono-code {
     font-family: 'JetBrains Mono', monospace;
   }
 
-  /* Glowing blue card border on hover */
-  .card-glow:hover {
-    box-shadow: 0 0 0 1px hsl(213 94% 57% / 0.3), 0 4px 24px hsl(213 94% 57% / 0.12);
+  .glow-blue {
+    box-shadow: 0 0 16px hsl(213 94% 57% / 0.45), 0 0 40px hsl(213 94% 57% / 0.2);
   }
 
-  /* Subtle gradient background for hero cards */
-  .card-gradient {
-    background: linear-gradient(135deg, hsl(228 44% 14%), hsl(225 50% 10%));
+  .glow-blue-sm {
+    box-shadow: 0 0 8px hsl(213 94% 57% / 0.35), 0 0 20px hsl(213 94% 57% / 0.15);
   }
 
-  /* Blue gradient for stat icon backgrounds */
-  .icon-bg-blue {
-    background: linear-gradient(135deg, hsl(213 94% 57% / 0.25), hsl(199 89% 48% / 0.15));
+  .glow-success {
+    box-shadow: 0 0 12px hsl(160 84% 39% / 0.4), 0 0 28px hsl(160 84% 39% / 0.2);
   }
 
-  /* Green gradient for positive stats */
-  .icon-bg-green {
-    background: linear-gradient(135deg, hsl(160 84% 39% / 0.25), hsl(160 84% 39% / 0.1));
+  .glow-warning {
+    box-shadow: 0 0 12px hsl(38 92% 50% / 0.4), 0 0 28px hsl(38 92% 50% / 0.2);
+  }
+
+  /* Card depth */
+  .card-depth {
+    box-shadow:
+      0 1px 0 hsl(0 0% 100% / 0.04) inset,
+      0 -1px 0 hsl(0 0% 0% / 0.2) inset,
+      0 4px 24px hsl(0 0% 0% / 0.3);
+  }
+
+  .light .card-depth {
+    box-shadow:
+      0 1px 0 hsl(0 0% 100% / 0.8) inset,
+      0 4px 24px hsl(222 47% 11% / 0.08);
+  }
+
+  /* Hover glow border */
+  .hover-glow:hover {
+    border-color: hsl(213 94% 57% / 0.4) !important;
+    box-shadow: 0 0 0 1px hsl(213 94% 57% / 0.15), 0 4px 24px hsl(213 94% 57% / 0.1);
+    transition: all 0.2s ease;
+  }
+
+  /* Gradient fills */
+  .gradient-blue {
+    background: linear-gradient(135deg, hsl(213 94% 57%), hsl(199 89% 48%));
+  }
+
+  .stat-card-glow {
+    position: relative;
+  }
+  .stat-card-glow::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: radial-gradient(ellipse at top left, hsl(213 94% 57% / 0.08), transparent 60%);
+    pointer-events: none;
   }
 }
 
-/* Custom scrollbar */
-::-webkit-scrollbar {
-  width: 4px;
-  height: 4px;
+/* ── Custom scrollbar ── */
+::-webkit-scrollbar        { width: 4px; height: 4px; }
+::-webkit-scrollbar-track  { background: transparent; }
+::-webkit-scrollbar-thumb  { background: hsl(0 0% 22%); border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: hsl(213 94% 57% / 0.6); }
+
+.light ::-webkit-scrollbar-thumb { background: hsl(214 20% 85%); }
+.light ::-webkit-scrollbar-thumb:hover { background: hsl(213 94% 50% / 0.6); }
+
+/* ── Chart animation ── */
+@keyframes chart-rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: hsl(228 35% 25%);
-  border-radius: 2px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: hsl(213 94% 57% / 0.5);
+.chart-enter {
+  animation: chart-rise 0.5s ease forwards;
 }
