@@ -1,8 +1,18 @@
-import React, { useState, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
+import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { AlertTriangle, Power, PlayCircle, ShieldAlert } from 'lucide-react';
+import { Power, PlayCircle, ShieldAlert } from 'lucide-react';
+
+const B = '#4B9EFF';
+
+const glass = {
+  background: 'var(--s-card)',
+  backdropFilter: 'blur(24px) saturate(180%)',
+  WebkitBackdropFilter: 'blur(24px) saturate(180%)',
+  border: '1px solid var(--s-card-b)',
+  borderRadius: '20px',
+  boxShadow: 'var(--s-card-shadow)',
+} as React.CSSProperties;
 
 export const KillSwitch: React.FC = () => {
   const [status, setStatus] = useState<'running' | 'stopped'>('running');
@@ -14,24 +24,16 @@ export const KillSwitch: React.FC = () => {
 
   useEffect(() => {
     fetchKillSwitchStatus();
-
-    const channel = supabase
-      .channel('kill_switch_changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'kill_switch' }, () => {
-        fetchKillSwitchStatus();
-      })
+    const channel = supabase.channel('kill_switch_changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'kill_switch' }, fetchKillSwitchStatus)
       .subscribe();
-
     return () => { supabase.removeChannel(channel); };
   }, []);
 
   const fetchKillSwitchStatus = async () => {
     const { data, error } = await supabase
-      .from('kill_switch')
-      .select('*')
-      .eq('id', '00000000-0000-0000-0000-000000000001')
-      .single();
-
+      .from('kill_switch').select('*')
+      .eq('id', '00000000-0000-0000-0000-000000000001').single();
     if (!error && data) {
       setStatus((data.status as 'running' | 'stopped') || 'running');
       setLastTriggered(data.triggered_at || null);
@@ -45,123 +47,111 @@ export const KillSwitch: React.FC = () => {
     setToggling(true);
     const newStatus = status === 'running' ? 'stopped' : 'running';
     const reasonText = newStatus === 'stopped' ? 'Manual emergency stop via dashboard' : 'Operations resumed via dashboard';
-
     try {
-      const { error } = await supabase
-        .from('kill_switch')
-        .update({
-          status: newStatus,
-          triggered_at: new Date().toISOString(),
-          triggered_by: 'Josh',
-          reason: reasonText,
-        })
-        .eq('id', '00000000-0000-0000-0000-000000000001');
-
+      const { error } = await supabase.from('kill_switch').update({
+        status: newStatus, triggered_at: new Date().toISOString(), triggered_by: 'Josh', reason: reasonText,
+      }).eq('id', '00000000-0000-0000-0000-000000000001');
       if (error) throw error;
-
       await supabase.from('audit_log').insert({
         agent: 'System',
         action: newStatus === 'stopped' ? 'kill_switch_activated' : 'kill_switch_deactivated',
-        details: { status: newStatus, reason: reasonText },
-        status: 'success',
+        details: { status: newStatus, reason: reasonText }, status: 'success',
       });
-
       fetch('/api/kill-switch/file', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus === 'stopped' ? 'STOP' : 'RUNNING' }),
       }).catch(() => {});
-
       setStatus(newStatus);
-
-      if (newStatus === 'stopped') {
-        toast.error('KILL SWITCH ACTIVATED');
-      } else {
-        toast.success('Operations resumed');
-      }
-    } catch {
-      toast.error('Failed to toggle kill switch');
-    } finally {
-      setToggling(false);
-    }
+      if (newStatus === 'stopped') toast.error('KILL SWITCH ACTIVATED');
+      else toast.success('Operations resumed');
+    } catch { toast.error('Failed to toggle kill switch'); }
+    finally { setToggling(false); }
   };
 
   const isStopped = status === 'stopped';
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {isStopped && (
-        <div className="rounded-xl bg-destructive/10 border border-destructive/30 p-3 flex items-center gap-2 animate-pulse">
-          <ShieldAlert className="h-4 w-4 text-destructive shrink-0" />
-          <p className="text-xs font-medium text-destructive">
+        <div className="rounded-xl px-3 py-2.5 flex items-center gap-2 animate-pulse"
+          style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)' }}>
+          <ShieldAlert className="h-4 w-4 shrink-0" style={{ color: 'var(--tc-80)' }} />
+          <p className="text-xs font-semibold text-white/80 tracking-wider">
             KILL SWITCH ACTIVE — ALL OPERATIONS HALTED
           </p>
         </div>
       )}
 
-      <div className={`rounded-2xl p-5 transition-colors duration-500 ${
-        isStopped
-          ? "bg-destructive/10 ring-2 ring-destructive/40"
-          : "bg-card"
-      }`}>
+      <div style={{
+        ...glass,
+        background: isStopped ? 'rgba(255,255,255,0.06)' : 'var(--s-card)',
+        border: `1px solid ${isStopped ? 'rgba(255,255,255,0.18)' : 'var(--s-card-b)'}`,
+        boxShadow: isStopped ? '0 0 40px rgba(255,255,255,0.08), 0 1px 0 rgba(255,255,255,0.08) inset' : glass.boxShadow,
+      }} className="p-5">
         <div className="flex items-center gap-2 mb-4">
-          {isStopped ? (
-            <AlertTriangle className="h-4 w-4 text-destructive" />
-          ) : (
-            <Power className="h-4 w-4 text-success" />
-          )}
-          <h3 className={`text-sm font-semibold ${isStopped ? "text-destructive" : "text-success"}`}>
+          {isStopped
+            ? <ShieldAlert className="h-4 w-4" style={{ color: 'var(--tc-70)' }} />
+            : <Power className="h-4 w-4" style={{ color: B }} />
+          }
+          <h3 className="text-sm font-semibold" style={{ color: 'var(--tc-80)' }}>
             Emergency Kill Switch
           </h3>
           <div className="flex items-center gap-1.5 ml-auto">
-            <span className={`h-2 w-2 rounded-full ${isStopped ? 'bg-destructive' : 'bg-success animate-pulse'}`} />
-            <span className={`text-[10px] font-medium tracking-wider ${isStopped ? 'text-destructive' : 'text-success'}`}>
+            <div className="h-2 w-2 rounded-full"
+              style={{
+                background: isStopped ? 'rgba(255,255,255,0.7)' : B,
+                boxShadow: isStopped ? '0 0 6px rgba(255,255,255,0.5)' : `0 0 6px ${B}`,
+                animation: isStopped ? undefined : 'pulse 2s infinite',
+              }} />
+            <span className="text-[10px] font-semibold tracking-wider"
+              style={{ color: isStopped ? 'var(--tc-70)' : B }}>
               {isStopped ? 'STOPPED' : 'RUNNING'}
             </span>
           </div>
         </div>
 
-        <Button
+        <button
           onClick={toggleKillSwitch}
           disabled={loading || toggling}
-          className={`w-full py-5 text-sm font-semibold tracking-wide rounded-xl transition-all ${
-            isStopped
-              ? 'bg-success/20 hover:bg-success/30 text-success border border-success/40'
-              : 'bg-destructive/80 hover:bg-destructive text-white border border-destructive/40'
-          }`}
+          className="w-full py-3 text-sm font-semibold tracking-wide rounded-xl transition-all"
+          style={isStopped ? {
+            background: `${B}20`, color: B, border: `1px solid ${B}40`,
+            boxShadow: `0 0 20px ${B}25`,
+          } : {
+            background: 'rgba(255,255,255,0.07)', color: 'var(--tc-70)',
+            border: '1px solid rgba(255,255,255,0.15)',
+          }}
         >
           {toggling ? (
             <span className="animate-pulse">Processing...</span>
           ) : isStopped ? (
-            <>
-              <PlayCircle className="h-4 w-4 mr-2" />
-              RESUME ALL OPERATIONS
-            </>
+            <span className="flex items-center justify-center gap-2">
+              <PlayCircle className="h-4 w-4" />RESUME ALL OPERATIONS
+            </span>
           ) : (
-            <>
-              <Power className="h-4 w-4 mr-2" />
-              STOP ALL OPERATIONS
-            </>
+            <span className="flex items-center justify-center gap-2">
+              <Power className="h-4 w-4" />STOP ALL OPERATIONS
+            </span>
           )}
-        </Button>
+        </button>
 
-        <div className="mt-4 space-y-1.5 text-[10px] text-card-foreground/40">
+        <div className="mt-4 space-y-1.5 text-[10px]" style={{ color: 'var(--tc-25)' }}>
           {lastTriggered && (
             <div className="flex justify-between">
               <span>Last triggered</span>
-              <span className="text-card-foreground/60">{new Date(lastTriggered).toLocaleString()}</span>
+              <span style={{ color: 'var(--tc-45)' }}>{new Date(lastTriggered).toLocaleString()}</span>
             </div>
           )}
           {triggeredBy && (
             <div className="flex justify-between">
               <span>By</span>
-              <span className="text-card-foreground/60">{triggeredBy}</span>
+              <span style={{ color: 'var(--tc-45)' }}>{triggeredBy}</span>
             </div>
           )}
           {reason && isStopped && (
-            <div className="flex justify-between">
+            <div className="flex justify-between gap-4">
               <span>Reason</span>
-              <span className="text-destructive/80 text-right max-w-[60%]">{reason}</span>
+              <span className="text-right" style={{ color: 'var(--tc-45)' }}>{reason}</span>
             </div>
           )}
         </div>

@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { CheckCircle, XCircle, Clock, Mail, AlertTriangle, X } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { CheckCircle } from 'lucide-react';
+import { SwipeableCard } from '@/components/ui/swipeable-card';
 
 interface EmailItem {
   id: string; from_email: string; subject: string; client: string | null;
@@ -12,7 +12,7 @@ interface EmailItem {
 }
 
 const B = '#4B9EFF';
-const card = { background: '#0d0d0d', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '20px' } as React.CSSProperties;
+const card = { background: 'var(--s-card)', backdropFilter: 'blur(24px) saturate(180%)', WebkitBackdropFilter: 'blur(24px) saturate(180%)', border: '1px solid var(--s-card-b)', borderRadius: '20px', boxShadow: 'var(--s-card-shadow)' } as React.CSSProperties;
 
 function timeSince(ts: string | null) {
   if (!ts) return '—';
@@ -87,7 +87,7 @@ export default function Approvals() {
         ].map(s => (
           <div key={s.label} style={card} className="p-5">
             <p className="text-[10px] text-white/25 uppercase tracking-widest mb-2">{s.label}</p>
-            <p className="text-3xl font-bold tabular-nums" style={{ color: s.active && s.value > 0 ? B : 'rgba(255,255,255,0.5)' }}>
+            <p className="text-3xl font-bold tabular-nums" style={{ color: s.active && s.value > 0 ? B : 'var(--tc-50)' }}>
               {s.value}
             </p>
           </div>
@@ -101,11 +101,18 @@ export default function Approvals() {
             className="px-4 py-2 rounded-xl text-xs font-medium transition-all"
             style={tab === t
               ? { background: `${B}20`, border: `1px solid ${B}40`, color: B }
-              : { background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.4)' }}>
+              : { background: 'var(--s-hover)', border: '1px solid rgba(255,255,255,0.06)', color: 'var(--tc-40)' }}>
             {t === 'pending' ? `Pending (${pending.length})` : `History (${history.length})`}
           </button>
         ))}
       </div>
+
+      {/* Swipe hint — mobile only, pending tab */}
+      {tab === 'pending' && pending.length > 0 && (
+        <p className="text-[10px] text-center sm:hidden" style={{ color: 'var(--tc-20)' }}>
+          swipe right to approve · swipe left to reject
+        </p>
+      )}
 
       {/* List */}
       {loading ? (
@@ -123,15 +130,30 @@ export default function Approvals() {
             const isAuto = email.status === 'auto_pending';
             const isApproved = email.status === 'approved';
             const isSelected = selected?.id === email.id;
+            const isPending = tab === 'pending';
             return (
               <div key={email.id}>
+                <SwipeableCard
+                  disabled={!isPending || !!processing}
+                  onSwipeRight={() => {
+                    if (email.status === 'awaiting_approval') handleAction(email, 'approved');
+                    else if (email.status === 'auto_pending') handleAction(email, 'approved');
+                  }}
+                  onSwipeLeft={() => {
+                    if (email.status === 'awaiting_approval') handleAction(email, 'rejected');
+                    else if (email.status === 'auto_pending') handleHold(email);
+                  }}
+                  rightLabel="Approve"
+                  leftLabel={email.status === 'auto_pending' ? 'Hold' : 'Reject'}
+                  leftColor={email.status === 'auto_pending' ? '#6366f1' : '#ef4444'}
+                >
                 <button onClick={() => setSelected(isSelected ? null : email)} className="w-full text-left"
                   style={{ ...card, display: 'block', borderColor: isSelected ? `${B}40` : 'rgba(255,255,255,0.06)' }}>
                   <div className="p-4">
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex items-start gap-3 min-w-0">
                         <div className="h-1.5 w-1.5 rounded-full shrink-0 mt-1.5"
-                          style={{ background: isAuto ? B : isApproved ? B : 'rgba(255,255,255,0.2)', boxShadow: (isAuto || isApproved) ? `0 0 5px ${B}` : 'none' }} />
+                          style={{ background: isAuto ? B : isApproved ? B : 'var(--tc-20)', boxShadow: (isAuto || isApproved) ? `0 0 5px ${B}` : 'none' }} />
                         <div className="min-w-0">
                           <div className="flex items-center gap-2 mb-1 flex-wrap">
                             {isAuto && (
@@ -140,7 +162,7 @@ export default function Approvals() {
                               </span>
                             )}
                             {email.status === 'awaiting_approval' && tab === 'pending' && (
-                              <span className="text-[9px] font-medium px-1.5 py-0.5 rounded text-white/50" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                              <span className="text-[9px] font-medium px-1.5 py-0.5 rounded" style={{ color: 'var(--tc-50)', background: 'rgba(255,255,255,0.06)', border: '1px solid var(--s-pill-b)' }}>
                                 ESCALATION
                               </span>
                             )}
@@ -148,37 +170,39 @@ export default function Approvals() {
                               <span className="text-[9px] font-medium px-1.5 py-0.5 rounded"
                                 style={isApproved
                                   ? { background: `${B}20`, color: B, border: `1px solid ${B}30` }
-                                  : { background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.4)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                                  : { background: 'rgba(255,255,255,0.06)', color: 'var(--tc-40)', border: '1px solid var(--s-pill-b)' }}>
                                 {email.status === 'approved' ? 'Approved' : 'Rejected'}
                               </span>
                             )}
                           </div>
-                          <p className="text-sm text-white/80 truncate">{email.subject}</p>
-                          <p className="text-[10px] text-white/30 mt-0.5">{email.from_email} · {email.client?.replace('_', ' ')}</p>
+                          <p className="text-sm truncate" style={{ color: 'var(--tc-80)' }}>{email.subject}</p>
+                          <p className="text-[10px] mt-0.5" style={{ color: 'var(--tc-30)' }}>{email.from_email} · {email.client?.replace('_', ' ')}</p>
                         </div>
                       </div>
-                      <span className="text-[10px] text-white/25 shrink-0">{timeSince(email.created_at)}</span>
+                      <span className="text-[10px] shrink-0" style={{ color: 'var(--tc-25)' }}>{timeSince(email.created_at)}</span>
                     </div>
                   </div>
                 </button>
 
+                </SwipeableCard>
+
                 {/* Expanded detail */}
                 {isSelected && (
-                  <div className="mt-1 rounded-2xl p-5 space-y-4" style={{ background: '#111', border: '1px solid rgba(255,255,255,0.08)' }}>
+                  <div className="mt-1 rounded-2xl p-5 space-y-4" style={{ background: '#111', border: '1px solid var(--s-pill-b)' }}>
                     {email.body && (
                       <div>
-                        <p className="text-[10px] text-white/25 uppercase tracking-widest mb-2">Email body</p>
-                        <div className="rounded-xl p-3 max-h-48 overflow-auto text-xs text-white/60 leading-relaxed whitespace-pre-wrap"
-                          style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                        <p className="text-[10px] uppercase tracking-widest mb-2" style={{ color: 'var(--tc-25)' }}>Email body</p>
+                        <div className="rounded-xl p-3 max-h-48 overflow-auto text-xs leading-relaxed whitespace-pre-wrap"
+                          style={{ color: 'var(--tc-60)', background: 'var(--s-card)', border: '1px solid rgba(255,255,255,0.06)' }}>
                           {email.body}
                         </div>
                       </div>
                     )}
                     {email.analysis?.draft_response && (
                       <div>
-                        <p className="text-[10px] text-white/25 uppercase tracking-widest mb-2">Sophia's draft</p>
-                        <div className="rounded-xl p-3 max-h-40 overflow-auto text-xs text-white/60 leading-relaxed whitespace-pre-wrap"
-                          style={{ background: `${B}08`, border: `1px solid ${B}20` }}>
+                        <p className="text-[10px] uppercase tracking-widest mb-2" style={{ color: 'var(--tc-25)' }}>Sophia's draft</p>
+                        <div className="rounded-xl p-3 max-h-40 overflow-auto text-xs leading-relaxed whitespace-pre-wrap"
+                          style={{ color: 'var(--tc-60)', background: `${B}08`, border: `1px solid ${B}20` }}>
                           {email.analysis.draft_response}
                         </div>
                       </div>
@@ -187,8 +211,8 @@ export default function Approvals() {
                       <div className="flex gap-2 pt-1">
                         {email.status === 'auto_pending' && (
                           <button onClick={() => handleHold(email)} disabled={processing === email.id}
-                            className="flex-1 py-2.5 rounded-xl text-xs font-semibold transition-all text-white/70"
-                            style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}>
+                            className="flex-1 py-2.5 rounded-xl text-xs font-semibold transition-all"
+                            style={{ color: 'var(--tc-70)', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}>
                             Hold — move to approval
                           </button>
                         )}
@@ -200,8 +224,8 @@ export default function Approvals() {
                               Approve
                             </button>
                             <button onClick={() => handleAction(email, 'rejected')} disabled={processing === email.id}
-                              className="flex-1 py-2.5 rounded-xl text-xs font-semibold transition-all text-white/60"
-                              style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}>
+                              className="flex-1 py-2.5 rounded-xl text-xs font-semibold transition-all"
+                              style={{ color: 'var(--tc-60)', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}>
                               Reject
                             </button>
                           </>

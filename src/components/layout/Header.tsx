@@ -34,7 +34,7 @@ export function Header() {
   }, []);
 
   return (
-    <header className="flex items-center justify-between px-5 md:px-7 pt-5 md:pt-6 pb-3 border-b border-border/50">
+    <header className="flex items-center justify-between px-5 md:px-7 pt-5 md:pt-6 pb-3 glass-header sticky top-0 z-40">
       <div>
         <h1 className="text-lg md:text-xl font-bold text-foreground leading-tight">{page.title}</h1>
         {page.subtitle && <p className="text-xs text-muted-foreground mt-0.5">{page.subtitle}</p>}
@@ -56,8 +56,8 @@ export function Header() {
         {/* Connectivity */}
         <div className="flex items-center gap-1.5">
           {online
-            ? <Wifi    className="h-3 w-3 text-success" />
-            : <WifiOff className="h-3 w-3 text-destructive" />
+            ? <Wifi    className="h-3 w-3" style={{ color: '#4B9EFF' }} />
+            : <WifiOff className="h-3 w-3" style={{ color: 'rgba(255,255,255,0.3)' }} />
           }
           <span className="text-[10px] text-muted-foreground hidden sm:inline">
             {online ? "Live" : "Offline"}

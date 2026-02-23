@@ -3,8 +3,7 @@ import { ActivityFeed } from "@/components/dashboard/ActivityFeed";
 import { EmailQueue } from "@/components/EmailQueue";
 import { KillSwitch } from "@/components/KillSwitch";
 import { supabase } from "@/integrations/supabase/client";
-import { Bot, Zap, Mail, AlertTriangle } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Bot } from "lucide-react";
 
 interface Agent {
   id: string; name: string; role: string;
@@ -14,9 +13,12 @@ interface Agent {
 const B = '#4B9EFF';
 
 const card = {
-  background: '#0d0d0d',
-  border: '1px solid rgba(255,255,255,0.06)',
+  background: 'var(--s-card)',
+  backdropFilter: 'blur(24px) saturate(180%)',
+  WebkitBackdropFilter: 'blur(24px) saturate(180%)',
+  border: '1px solid var(--s-card-b)',
   borderRadius: '20px',
+  boxShadow: 'var(--s-card-shadow)',
 } as React.CSSProperties;
 
 const roleLabels: Record<string, string> = {
@@ -66,7 +68,7 @@ export default function Index() {
             <div className="absolute -top-4 -right-4 h-16 w-16 rounded-full blur-2xl"
               style={{ background: s.active ? `${B}20` : 'transparent' }} />
             <p className="text-[10px] text-white/25 uppercase tracking-widest mb-3">{s.label}</p>
-            <p className="text-3xl font-bold tabular-nums" style={{ color: s.active ? B : 'rgba(255,255,255,0.7)' }}>
+            <p className="text-3xl font-bold tabular-nums" style={{ color: s.active ? B : 'var(--tc-70)' }}>
               {s.value}
             </p>
           </div>
@@ -95,8 +97,8 @@ export default function Index() {
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-3">
                       <div className="h-10 w-10 rounded-xl flex items-center justify-center"
-                        style={{ background: isOnline ? `${B}15` : 'rgba(255,255,255,0.04)', border: `1px solid ${isOnline ? `${B}30` : 'rgba(255,255,255,0.06)'}` }}>
-                        <Bot className="h-4 w-4" style={{ color: isOnline ? B : 'rgba(255,255,255,0.3)' }} />
+                        style={{ background: isOnline ? `${B}15` : 'var(--s-hover)', border: `1px solid ${isOnline ? `${B}30` : 'var(--s-row-b)'}` }}>
+                        <Bot className="h-4 w-4" style={{ color: isOnline ? B : 'var(--tc-30)' }} />
                       </div>
                       <div>
                         <p className="text-sm font-semibold text-white">{agent.name}</p>
@@ -106,18 +108,18 @@ export default function Index() {
                     <div className="flex items-center gap-1.5">
                       <div className="h-1.5 w-1.5 rounded-full"
                         style={{
-                          background: isOnline ? B : isIdle ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.15)',
+                          background: isOnline ? B : isIdle ? 'var(--tc-50)' : 'var(--tc-15)',
                           boxShadow: isOnline ? `0 0 5px ${B}` : 'none',
                         }} />
                       <span className="text-[10px] font-medium uppercase tracking-wider"
-                        style={{ color: isOnline ? B : isIdle ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.2)' }}>
+                        style={{ color: isOnline ? B : isIdle ? 'var(--tc-50)' : 'var(--tc-20)' }}>
                         {agent.status || 'offline'}
                       </span>
                     </div>
                   </div>
                   <div className="border-t border-white/5 pt-3">
                     <p className="text-[10px] text-white/25 uppercase tracking-widest mb-1">Current task</p>
-                    <p className="text-xs text-white/50 truncate">{agent.current_task || 'No active task'}</p>
+                    <p className="text-xs truncate" style={{ color: 'var(--tc-50)' }}>{agent.current_task || 'No active task'}</p>
                   </div>
                 </div>
               );

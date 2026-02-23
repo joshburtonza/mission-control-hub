@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, Bot, ListTodo, ClipboardList, DollarSign, Calendar,
-  Settings, CheckSquare, FileText, Bell,
+  Settings, CheckSquare, FileText, Bell, Users, Brain, Video,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { cn } from "@/lib/utils";
@@ -11,6 +11,8 @@ const mainNav = [
   { icon: CheckSquare,     url: "/approvals", label: "Approvals" },
   { icon: ListTodo,        url: "/tasks",     label: "Tasks" },
   { icon: FileText,        url: "/content",   label: "Content" },
+  { icon: Users,           url: "/crm",       label: "Alex CRM" },
+  { icon: Brain,           url: "/research",  label: "Research" },
   { icon: DollarSign,      url: "/finances",  label: "Finances" },
   { icon: Calendar,        url: "/calendar",  label: "Calendar" },
   { icon: Bell,            url: "/notifications", label: "Alerts" },
@@ -41,15 +43,15 @@ const mobileNav = [
   { icon: LayoutDashboard, url: "/",          label: "Home",     end: true },
   { icon: CheckSquare,     url: "/approvals", label: "Approvals" },
   { icon: ListTodo,        url: "/tasks",     label: "Tasks" },
+  { icon: Video,           url: "/content",   label: "Content" },
   { icon: DollarSign,      url: "/finances",  label: "Money" },
-  { icon: Settings,        url: "/settings",  label: "Settings" },
 ];
 
 export function AppSidebar() {
   return (
     <>
       {/* Desktop sidebar */}
-      <aside className="hidden md:flex w-52 bg-sidebar flex-col py-5 px-3 gap-1 shrink-0 border-r border-sidebar-border">
+      <aside className="hidden md:flex w-52 flex-col py-5 px-3 gap-1 shrink-0 glass-sidebar sticky top-0 h-screen">
         {/* Logo */}
         <div className="flex items-center gap-2.5 px-3 mb-6">
           <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center shrink-0">
@@ -74,13 +76,13 @@ export function AppSidebar() {
         </nav>
 
         {/* Bottom */}
-        <div className="flex flex-col gap-0.5 pt-2 border-t border-sidebar-border">
+        <div className="flex flex-col gap-0.5 pt-2" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
           <NavItem icon={Settings} url="/settings" label="Settings" />
         </div>
       </aside>
 
       {/* Mobile bottom tab bar */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-sidebar border-t border-sidebar-border">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 glass-sidebar" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
         <div className="flex items-center justify-around h-16 px-1 pb-[env(safe-area-inset-bottom)]">
           {mobileNav.map((item) => (
             <NavLink

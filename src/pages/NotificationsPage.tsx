@@ -1,11 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { toast } from 'sonner';
-import { Bell, Mail, AlertTriangle, CheckCircle2, Activity, GitBranch, Zap, Send, BellOff, RefreshCw } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { Bell, Mail, AlertTriangle, CheckCircle2, Activity, GitBranch, Zap, Send, BellOff, RefreshCw, X } from 'lucide-react';
 
+/* ── Types ── */
 interface Notification {
   id: string;
   type: string;
@@ -19,44 +16,100 @@ interface Notification {
   read_at: string | null;
 }
 
-const typeConfig: Record<string, { icon: React.ReactNode; color: string; label: string }> = {
-  email_inbound: { icon: <Mail className="h-3.5 w-3.5" />,       color: 'text-cyan-400 bg-cyan-900/30 border-cyan-700/40',     label: 'Email In' },
-  email_sent:    { icon: <Send className="h-3.5 w-3.5" />,       color: 'text-green-400 bg-green-900/30 border-green-700/40',   label: 'Email Sent' },
-  escalation:    { icon: <AlertTriangle className="h-3.5 w-3.5" />, color: 'text-orange-400 bg-orange-900/30 border-orange-700/40', label: 'Escalation' },
-  approval:      { icon: <CheckCircle2 className="h-3.5 w-3.5" />, color: 'text-yellow-400 bg-yellow-900/30 border-yellow-700/40', label: 'Approval' },
-  heartbeat:     { icon: <Activity className="h-3.5 w-3.5" />,   color: 'text-primary bg-primary/10 border-primary/30',        label: 'Heartbeat' },
-  outreach:      { icon: <Zap className="h-3.5 w-3.5" />,        color: 'text-purple-400 bg-purple-900/30 border-purple-700/40', label: 'Outreach' },
-  repo:          { icon: <GitBranch className="h-3.5 w-3.5" />,  color: 'text-blue-400 bg-blue-900/30 border-blue-700/40',     label: 'Repo' },
-  system:        { icon: <Activity className="h-3.5 w-3.5" />,   color: 'text-gray-400 bg-gray-800/30 border-gray-700/40',     label: 'System' },
-  reminder:      { icon: <Bell className="h-3.5 w-3.5" />,       color: 'text-yellow-400 bg-yellow-900/30 border-yellow-700/40', label: 'Reminder' },
+/* ── Palette ── */
+const B1 = '#4B9EFF';
+const CARD: React.CSSProperties = {
+  background: 'var(--s-card)',
+  backdropFilter: 'blur(24px) saturate(180%)',
+  WebkitBackdropFilter: 'blur(24px) saturate(180%)',
+  border: '1px solid var(--s-card-b)',
+  borderRadius: '16px',
+  boxShadow: 'var(--s-card-shadow)',
 };
 
-const priorityDot: Record<string, string> = {
-  urgent: 'bg-red-400',
-  high:   'bg-orange-400',
-  normal: 'bg-blue-400/0',
-  low:    'bg-gray-500/0',
+/* ── Type config — all electric blue, differentiated by icon only ── */
+const typeIcon: Record<string, React.ReactNode> = {
+  email_inbound: <Mail className="h-3.5 w-3.5" />,
+  email_sent:    <Send className="h-3.5 w-3.5" />,
+  escalation:    <AlertTriangle className="h-3.5 w-3.5" />,
+  approval:      <CheckCircle2 className="h-3.5 w-3.5" />,
+  heartbeat:     <Activity className="h-3.5 w-3.5" />,
+  outreach:      <Zap className="h-3.5 w-3.5" />,
+  repo:          <GitBranch className="h-3.5 w-3.5" />,
+  system:        <Activity className="h-3.5 w-3.5" />,
+  reminder:      <Bell className="h-3.5 w-3.5" />,
+};
+
+const typeLabel: Record<string, string> = {
+  email_inbound: 'Email In',
+  email_sent:    'Email Sent',
+  escalation:    'Escalation',
+  approval:      'Approval',
+  heartbeat:     'Heartbeat',
+  outreach:      'Outreach',
+  repo:          'Repo',
+  system:        'System',
+  reminder:      'Reminder',
 };
 
 const FILTER_TYPES = ['all', 'email_inbound', 'escalation', 'approval', 'heartbeat', 'outreach', 'repo', 'system'];
 
+function timeSince(ts: string | null) {
+  if (!ts) return '';
+  const diff = Date.now() - new Date(ts).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  if (mins < 1440) return `${Math.floor(mins / 60)}h ago`;
+  return `${Math.floor(mins / 1440)}d ago`;
+}
+
+/* ── Stat chip ── */
+function Stat({ label, value, glow }: { label: string; value: number; glow?: boolean }) {
+  return (
+    <div style={CARD} className="flex flex-col items-center justify-center py-3 px-2 gap-0.5">
+      <span
+        className="text-xl font-bold tabular-nums"
+        style={{ color: glow ? B1 : 'var(--tc-85)', textShadow: glow ? `0 0 16px ${B1}88` : 'none' }}
+      >
+        {value}
+      </span>
+      <span className="text-[9px] uppercase tracking-widest" style={{ color: 'var(--tc-30)' }}>{label}</span>
+    </div>
+  );
+}
+
+/* ── Filter chip ── */
+function Chip({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className="text-[10px] font-medium px-3 py-1.5 rounded-full transition-all"
+      style={{
+        background: active ? `${B1}18` : 'var(--s-hover)',
+        border: `1px solid ${active ? `${B1}55` : 'var(--s-pill-b)'}`,
+        color: active ? B1 : 'var(--tc-40)',
+        boxShadow: active ? `0 0 12px ${B1}22` : 'none',
+      }}
+    >
+      {label}
+    </button>
+  );
+}
+
+/* ════════════════════════════════════════
+   Page
+════════════════════════════════════════ */
 export default function NotificationsPage() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [filterType, setFilterType] = useState('all');
+  const [loading, setLoading]   = useState(true);
+  const [spinning, setSpinning] = useState(false);
+  const [filterType, setFilterType]     = useState('all');
   const [filterStatus, setFilterStatus] = useState<'unread' | 'all'>('unread');
   const [expanded, setExpanded] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchNotifications();
-    const channel = supabase
-      .channel('notifications_live')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications' }, fetchNotifications)
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, []);
-
-  const fetchNotifications = async () => {
+  const fetch = async (spin = false) => {
+    if (spin) setSpinning(true);
     const { data, error } = await supabase
       .from('notifications')
       .select('*')
@@ -65,185 +118,239 @@ export default function NotificationsPage() {
       .limit(100);
     if (!error) setNotifications((data as Notification[]) || []);
     setLoading(false);
+    if (spin) setTimeout(() => setSpinning(false), 500);
   };
+
+  useEffect(() => {
+    fetch();
+    const ch = supabase.channel('notif_live')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications' }, () => fetch())
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, []);
 
   const markRead = async (id: string) => {
     await supabase.from('notifications').update({ status: 'read', read_at: new Date().toISOString() }).eq('id', id);
   };
 
-  const dismiss = async (id: string) => {
+  const dismiss = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
     await supabase.from('notifications').update({ status: 'dismissed' }).eq('id', id);
-    toast.info('Dismissed');
   };
 
   const markAllRead = async () => {
-    await supabase
-      .from('notifications')
+    await supabase.from('notifications')
       .update({ status: 'read', read_at: new Date().toISOString() })
       .eq('status', 'unread');
-    toast.success('All marked as read');
   };
 
-  const handleExpand = (id: string, currentStatus: string) => {
+  const handleExpand = (id: string, status: string) => {
     setExpanded(expanded === id ? null : id);
-    if (currentStatus === 'unread') markRead(id);
+    if (status === 'unread') markRead(id);
   };
 
-  const timeSince = (ts: string | null) => {
-    if (!ts) return '';
-    const diff = Date.now() - new Date(ts).getTime();
-    const mins = Math.floor(diff / 60000);
-    if (mins < 1) return 'just now';
-    if (mins < 60) return `${mins}m ago`;
-    if (mins < 1440) return `${Math.floor(mins / 60)}h ago`;
-    return `${Math.floor(mins / 1440)}d ago`;
-  };
+  const unreadCount   = notifications.filter(n => n.status === 'unread').length;
+  const urgentCount   = notifications.filter(n => n.priority === 'urgent' && n.status === 'unread').length;
+  const escalCount    = notifications.filter(n => n.type === 'escalation' && n.status === 'unread').length;
 
   const filtered = notifications.filter(n => {
-    const matchType = filterType === 'all' || n.type === filterType;
+    const matchType   = filterType === 'all' || n.type === filterType;
     const matchStatus = filterStatus === 'all' || n.status === 'unread';
     return matchType && matchStatus;
   });
 
-  const unreadCount = notifications.filter(n => n.status === 'unread').length;
-  const urgentCount = notifications.filter(n => n.priority === 'urgent' && n.status === 'unread').length;
-
   return (
     <div className="space-y-4 pb-24 sm:pb-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="font-display text-xl font-bold tracking-wider text-foreground glow-cyan flex items-center gap-2">
-            <Bell className="h-5 w-5 text-primary" />
-            Notifications
-            {unreadCount > 0 && (
-              <span className="bg-primary text-black font-mono text-[10px] px-1.5 py-0.5 rounded-full">{unreadCount}</span>
-            )}
-          </h1>
-          <p className="font-mono text-xs text-muted-foreground mt-1">
-            {unreadCount} unread{urgentCount > 0 ? ` · ${urgentCount} urgent` : ''}
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button size="sm" variant="outline" onClick={fetchNotifications}
-            className="h-7 w-7 p-0 border-border/40 text-muted-foreground hover:text-primary">
-            <RefreshCw className="h-3.5 w-3.5" />
-          </Button>
-          {unreadCount > 0 && (
-            <Button size="sm" onClick={markAllRead}
-              className="h-7 text-[10px] font-mono bg-secondary/30 hover:bg-secondary/50 text-muted-foreground border border-border/40">
-              <CheckCircle2 className="h-3 w-3 mr-1" />Mark all read
-            </Button>
-          )}
-        </div>
-      </div>
 
-      {/* Stats */}
+      {/* ── Stats row ── */}
       <div className="grid grid-cols-4 gap-2">
-        {[
-          { label: 'Unread',    value: unreadCount, color: 'text-primary', border: 'border-primary/30' },
-          { label: 'Urgent',    value: urgentCount, color: 'text-red-400', border: 'border-red-700/30' },
-          { label: 'Escalation', value: notifications.filter(n => n.type === 'escalation' && n.status === 'unread').length, color: 'text-orange-400', border: 'border-orange-700/30' },
-          { label: 'Total',     value: notifications.length, color: 'text-muted-foreground', border: 'border-border/30' },
-        ].map(s => (
-          <div key={s.label} className={`bg-card border ${s.border} rounded-md px-2 py-2`}>
-            <p className="font-mono text-[9px] text-muted-foreground uppercase tracking-wider">{s.label}</p>
-            <p className={`font-display text-lg ${s.color}`}>{s.value}</p>
-          </div>
-        ))}
+        <Stat label="Unread"     value={unreadCount} glow />
+        <Stat label="Urgent"     value={urgentCount} />
+        <Stat label="Escalation" value={escalCount} />
+        <Stat label="Total"      value={notifications.length} />
       </div>
 
-      {/* Filters */}
-      <div className="space-y-2">
-        <div className="flex gap-1">
-          {(['unread', 'all'] as const).map(s => (
-            <button key={s} onClick={() => setFilterStatus(s)}
-              className={cn('font-mono text-[10px] uppercase tracking-wider px-2.5 py-1 rounded border transition-colors',
-                filterStatus === s ? 'border-primary/50 bg-primary/10 text-primary' : 'border-border/40 text-muted-foreground hover:text-primary')}>
-              {s === 'unread' ? `Unread (${unreadCount})` : 'All'}
-            </button>
+      {/* ── Toolbar ── */}
+      <div style={CARD} className="flex items-center justify-between gap-3 px-4 py-3">
+        <div className="flex items-center gap-2 flex-wrap">
+          <Chip label={`Unread (${unreadCount})`} active={filterStatus === 'unread'} onClick={() => setFilterStatus('unread')} />
+          <Chip label="All" active={filterStatus === 'all'} onClick={() => setFilterStatus('all')} />
+          <div className="w-px h-4 bg-white/10 mx-1" />
+          {FILTER_TYPES.map(t => (
+            <Chip
+              key={t}
+              label={t === 'all' ? 'All types' : (typeLabel[t] ?? t)}
+              active={filterType === t}
+              onClick={() => setFilterType(t)}
+            />
           ))}
         </div>
-        <div className="flex gap-1 flex-wrap">
-          {FILTER_TYPES.map(t => {
-            const tc = typeConfig[t];
-            return (
-              <button key={t} onClick={() => setFilterType(t)}
-                className={cn('font-mono text-[9px] px-2 py-1 rounded border transition-colors',
-                  filterType === t
-                    ? t === 'all' ? 'border-primary/50 bg-primary/10 text-primary' : tc.color
-                    : 'border-border/40 text-muted-foreground hover:text-foreground')}>
-                {t === 'all' ? 'All' : (tc?.label || t)}
-              </button>
-            );
-          })}
+        <div className="flex items-center gap-2 shrink-0">
+          {unreadCount > 0 && (
+            <button
+              onClick={markAllRead}
+              className="text-[10px] font-medium px-3 py-1.5 rounded-full transition-all"
+              style={{
+                background: 'var(--s-hover)',
+                border: '1px solid var(--s-pill-b)',
+                color: 'var(--tc-50)',
+              }}
+            >
+              Mark all read
+            </button>
+          )}
+          <button
+            onClick={() => fetch(true)}
+            className="h-8 w-8 flex items-center justify-center rounded-full transition-all"
+            style={{ background: 'var(--s-hover)', border: '1px solid var(--s-pill-b)', color: 'var(--tc-40)' }}
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${spinning ? 'animate-spin' : ''}`} />
+          </button>
         </div>
       </div>
 
-      {/* Feed */}
+      {/* ── Feed ── */}
       {loading ? (
-        <div className="font-mono text-xs text-muted-foreground animate-pulse py-8 text-center">Loading...</div>
+        <div className="text-[11px] text-center py-12" style={{ color: 'var(--tc-20)' }}>Loading…</div>
       ) : filtered.length === 0 ? (
-        <div className="border border-border/30 rounded-lg p-10 text-center">
-          <BellOff className="h-8 w-8 text-muted-foreground mx-auto mb-3" />
-          <p className="font-mono text-sm text-muted-foreground">
-            {filterStatus === 'unread' ? 'All caught up — no unread notifications' : 'No notifications match this filter'}
+        <div style={{ ...CARD, borderRadius: '20px' }} className="flex flex-col items-center justify-center py-16 gap-3">
+          <BellOff className="h-8 w-8" style={{ color: 'var(--tc-15)' }} />
+          <p className="text-sm" style={{ color: 'var(--tc-25)' }}>
+            {filterStatus === 'unread' ? 'All caught up' : 'No notifications match this filter'}
           </p>
         </div>
       ) : (
         <div className="space-y-1.5">
-          {filtered.map(notif => {
-            const tc = typeConfig[notif.type] || typeConfig.system;
-            const isExpanded = expanded === notif.id;
-            const isUnread = notif.status === 'unread';
+          {filtered.map(n => {
+            const isUnread   = n.status === 'unread';
+            const isExpanded = expanded === n.id;
+            const isUrgent   = n.priority === 'urgent';
+            const icon       = typeIcon[n.type] ?? typeIcon.system;
+            const label      = typeLabel[n.type] ?? n.type;
+
             return (
-              <div key={notif.id}
-                className={cn('rounded-md border transition-all',
-                  isUnread ? 'border-border/60 bg-card' : 'border-border/20 bg-card/50 opacity-70',
-                  notif.priority === 'urgent' && isUnread ? 'border-red-700/50' : '',
-                  notif.priority === 'high' && isUnread ? 'border-orange-700/40' : ''
-                )}
+              <div
+                key={n.id}
+                style={{
+                  background: isUnread ? 'var(--s-hover)' : 'var(--s-row)',
+                  backdropFilter: 'blur(20px)',
+                  WebkitBackdropFilter: 'blur(20px)',
+                  border: '1px solid var(--s-row-b)',
+                  borderRadius: '14px',
+                  opacity: isUnread ? 1 : 0.5,
+                  transition: 'all 0.2s',
+                }}
               >
-                <div className="flex items-start gap-3 p-3 cursor-pointer" onClick={() => handleExpand(notif.id, notif.status)}>
-                  {/* Unread dot */}
-                  <div className={cn('h-2 w-2 rounded-full mt-1.5 shrink-0', isUnread ? 'bg-primary' : 'bg-transparent')} />
-                  {/* Type icon */}
-                  <div className={cn('h-7 w-7 rounded-md border flex items-center justify-center shrink-0', tc.color)}>
-                    {tc.icon}
+                {/* Row */}
+                <div
+                  className="flex items-start gap-3 px-4 py-3 cursor-pointer"
+                  onClick={() => handleExpand(n.id, n.status)}
+                >
+                  {/* Priority dot */}
+                  <div className="flex items-center shrink-0 pt-2.5">
+                    <div
+                      style={{
+                        width: '7px',
+                        height: '7px',
+                        borderRadius: '50%',
+                        background: !isUnread
+                          ? 'rgba(255,255,255,0.12)'
+                          : isUrgent
+                            ? B1
+                            : `${B1}99`,
+                        boxShadow: !isUnread
+                          ? 'none'
+                          : isUrgent
+                            ? `0 0 7px ${B1}, 0 0 14px ${B1}66`
+                            : `0 0 5px ${B1}66`,
+                        flexShrink: 0,
+                      }}
+                    />
                   </div>
-                  {/* Content */}
+
+                  {/* Icon badge */}
+                  <div
+                    className="h-8 w-8 rounded-xl flex items-center justify-center shrink-0 mt-0.5"
+                    style={{
+                      background: isUnread ? `${B1}15` : 'var(--s-hover)',
+                      color: isUnread ? B1 : 'var(--tc-25)',
+                      boxShadow: isUnread ? `0 0 10px ${B1}25` : 'none',
+                    }}
+                  >
+                    {icon}
+                  </div>
+
+                  {/* Text */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-2">
-                      <p className={cn('font-mono text-xs', isUnread ? 'text-foreground font-medium' : 'text-foreground/60')}>
-                        {notif.title}
-                      </p>
-                      <span className="font-mono text-[9px] text-muted-foreground shrink-0">{timeSince(notif.created_at)}</span>
+                      <span
+                        className="text-[13px] font-medium leading-snug"
+                        style={{ color: isUnread ? 'var(--tc-90)' : 'var(--tc-45)' }}
+                      >
+                        {n.title}
+                      </span>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="text-[10px]" style={{ color: 'var(--tc-25)' }}>{timeSince(n.created_at)}</span>
+                        <button
+                          onClick={(e) => dismiss(n.id, e)}
+                          className="h-5 w-5 flex items-center justify-center rounded transition-all hover:bg-white/10"
+                          style={{ color: 'var(--tc-20)' }}
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      <Badge className={cn('text-[8px] font-mono border', tc.color)}>{tc.label}</Badge>
-                      {notif.agent && <span className="font-mono text-[9px] text-muted-foreground">{notif.agent}</span>}
-                      {(notif.priority === 'urgent' || notif.priority === 'high') && (
-                        <span className={cn('font-mono text-[8px]', notif.priority === 'urgent' ? 'text-red-400' : 'text-orange-400')}>
-                          {notif.priority.toUpperCase()}
+                    <div className="flex items-center gap-2 mt-1">
+                      <span
+                        className="text-[10px] px-2 py-0.5 rounded-full"
+                        style={{
+                          background: `${B1}12`,
+                          color: isUnread ? `${B1}cc` : 'var(--tc-25)',
+                          border: `1px solid ${B1}22`,
+                        }}
+                      >
+                        {label}
+                      </span>
+                      {n.agent && (
+                        <span className="text-[10px]" style={{ color: 'var(--tc-25)' }}>
+                          {n.agent}
+                        </span>
+                      )}
+                      {isUrgent && (
+                        <span
+                          className="text-[9px] font-semibold tracking-widest uppercase px-1.5 py-0.5 rounded-full"
+                          style={{ background: `${B1}18`, color: B1, border: `1px solid ${B1}44`, boxShadow: `0 0 8px ${B1}33` }}
+                        >
+                          Urgent
                         </span>
                       )}
                     </div>
                   </div>
                 </div>
+
+                {/* Expanded body */}
                 {isExpanded && (
-                  <div className="px-4 pb-3 border-t border-border/20 space-y-2">
-                    {notif.body && (
-                      <p className="font-mono text-xs text-foreground/70 mt-2 whitespace-pre-wrap">{notif.body}</p>
+                  <div
+                    className="px-4 pb-4"
+                    style={{ borderTop: '1px solid var(--s-row-b)' }}
+                  >
+                    {n.body && (
+                      <p className="text-[12px] leading-relaxed mt-3 whitespace-pre-wrap" style={{ color: 'var(--tc-50)' }}>
+                        {n.body}
+                      </p>
                     )}
-                    {notif.metadata && (
-                      <pre className="font-mono text-[9px] text-accent bg-secondary/40 p-2 rounded overflow-auto max-h-24">
-                        {JSON.stringify(notif.metadata, null, 2)}
+                    {n.metadata && (
+                      <pre
+                        className="text-[10px] mt-3 p-3 rounded-xl overflow-auto max-h-32 font-mono"
+                        style={{
+                          background: 'rgba(75,158,255,0.05)',
+                          border: '1px solid rgba(75,158,255,0.12)',
+                          color: `${B1}99`,
+                        }}
+                      >
+                        {JSON.stringify(n.metadata, null, 2)}
                       </pre>
                     )}
-                    <Button size="sm" onClick={() => dismiss(notif.id)}
-                      className="h-6 text-[9px] font-mono bg-secondary/30 hover:bg-secondary/50 text-muted-foreground border border-border/40 mt-1">
-                      Dismiss
-                    </Button>
                   </div>
                 )}
               </div>

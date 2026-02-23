@@ -1,7 +1,15 @@
 import { Bot, Play, Pause, RotateCcw, Terminal } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+
+const B = '#4B9EFF';
+
+const glass = {
+  background: 'var(--s-card)',
+  backdropFilter: 'blur(24px) saturate(180%)',
+  WebkitBackdropFilter: 'blur(24px) saturate(180%)',
+  border: '1px solid var(--s-card-b)',
+  borderRadius: '20px',
+  boxShadow: 'var(--s-card-shadow)',
+} as React.CSSProperties;
 
 export type AgentStatus = "online" | "offline" | "error" | "idle";
 
@@ -13,63 +21,62 @@ interface AgentCardProps {
   type: string;
 }
 
-const statusConfig: Record<AgentStatus, { label: string; colorClass: string; dotClass: string }> = {
-  online: { label: "ONLINE", colorClass: "text-success", dotClass: "bg-success animate-pulse-glow" },
-  idle: { label: "IDLE", colorClass: "text-warning", dotClass: "bg-warning animate-pulse-glow" },
-  offline: { label: "OFFLINE", colorClass: "text-muted-foreground", dotClass: "bg-muted-foreground" },
-  error: { label: "ERROR", colorClass: "text-destructive", dotClass: "bg-destructive animate-pulse-glow" },
-};
-
 export function AgentCard({ name, status, lastActivity, currentTask, type }: AgentCardProps) {
-  const sc = statusConfig[status];
+  const isOnline  = status === 'online';
+  const isIdle    = status === 'idle';
+  const statusLabel = status.toUpperCase();
 
   return (
-    <Card className="bg-card border-border/50 glow-box-cyan hover:border-primary/30 transition-all duration-300">
-      <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="h-9 w-9 rounded-md bg-secondary flex items-center justify-center">
-              <Bot className="h-5 w-5 text-primary" />
-            </div>
-            <div>
-              <CardTitle className="text-sm font-display tracking-wide text-foreground">
-                {name}
-              </CardTitle>
-              <p className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">{type}</p>
-            </div>
+    <div style={glass} className="p-5">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-3">
+          <div className="h-9 w-9 rounded-xl flex items-center justify-center"
+            style={{ background: isOnline ? `${B}15` : 'var(--s-hover)', border: `1px solid ${isOnline ? `${B}30` : 'var(--s-card-b)'}` }}>
+            <Bot className="h-5 w-5" style={{ color: isOnline ? B : 'var(--tc-30)' }} />
           </div>
-          <div className="flex items-center gap-2">
-            <span className={cn("h-2 w-2 rounded-full", sc.dotClass)} />
-            <span className={cn("text-[10px] font-mono tracking-wider", sc.colorClass)}>
-              {sc.label}
-            </span>
+          <div>
+            <p className="text-sm font-semibold text-white/85">{name}</p>
+            <p className="text-[10px] text-white/30 uppercase tracking-wider">{type}</p>
           </div>
         </div>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        <div className="space-y-1">
-          <p className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">Current Task</p>
-          <p className="text-xs font-mono text-foreground/80 truncate">{currentTask}</p>
+        <div className="flex items-center gap-2">
+          <div className="h-1.5 w-1.5 rounded-full"
+            style={{
+              background: isOnline ? B : isIdle ? 'var(--tc-50)' : 'var(--tc-15)',
+              boxShadow: isOnline ? `0 0 5px ${B}` : 'none',
+            }} />
+          <span className="text-[10px] font-medium tracking-wider"
+            style={{ color: isOnline ? B : isIdle ? 'var(--tc-50)' : 'var(--tc-20)' }}>
+            {statusLabel}
+          </span>
         </div>
-        <div className="space-y-1">
-          <p className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">Last Activity</p>
-          <p className="text-xs font-mono text-foreground/60">{lastActivity}</p>
+      </div>
+
+      <div className="space-y-3 border-t border-white/[0.05] pt-3">
+        <div>
+          <p className="text-[9px] text-white/25 uppercase tracking-widest mb-1">Current Task</p>
+          <p className="text-xs text-white/55 truncate">{currentTask}</p>
         </div>
-        <div className="flex gap-1.5 pt-1">
-          <Button size="sm" variant="outline" className="h-7 text-[10px] font-mono gap-1 border-border/50 text-muted-foreground hover:text-primary hover:border-primary/50">
-            <Play className="h-3 w-3" /> Start
-          </Button>
-          <Button size="sm" variant="outline" className="h-7 text-[10px] font-mono gap-1 border-border/50 text-muted-foreground hover:text-warning hover:border-warning/50">
-            <Pause className="h-3 w-3" /> Pause
-          </Button>
-          <Button size="sm" variant="outline" className="h-7 text-[10px] font-mono gap-1 border-border/50 text-muted-foreground hover:text-primary hover:border-primary/50">
-            <RotateCcw className="h-3 w-3" /> Restart
-          </Button>
-          <Button size="sm" variant="outline" className="h-7 text-[10px] font-mono gap-1 border-border/50 text-muted-foreground hover:text-accent hover:border-accent/50">
-            <Terminal className="h-3 w-3" /> Logs
-          </Button>
+        <div>
+          <p className="text-[9px] text-white/25 uppercase tracking-widest mb-1">Last Activity</p>
+          <p className="text-xs text-white/40">{lastActivity}</p>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+
+      <div className="flex gap-1.5 mt-3 pt-3 border-t border-white/[0.05]">
+        {[
+          { icon: <Play className="h-3 w-3" />, label: 'Start' },
+          { icon: <Pause className="h-3 w-3" />, label: 'Pause' },
+          { icon: <RotateCcw className="h-3 w-3" />, label: 'Restart' },
+          { icon: <Terminal className="h-3 w-3" />, label: 'Logs' },
+        ].map(btn => (
+          <button key={btn.label}
+            className="flex items-center gap-1 h-7 px-2 rounded-lg text-[10px] font-medium transition-all"
+            style={{ background: 'var(--s-hover)', color: 'var(--tc-35)', border: '1px solid var(--s-card-b)' }}>
+            {btn.icon} {btn.label}
+          </button>
+        ))}
+      </div>
+    </div>
   );
 }

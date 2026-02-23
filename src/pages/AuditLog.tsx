@@ -9,7 +9,7 @@ interface AuditEntry {
 }
 
 const B = '#4B9EFF';
-const card = { background: '#0d0d0d', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '20px' } as React.CSSProperties;
+const card = { background: 'var(--s-card)', backdropFilter: 'blur(24px) saturate(180%)', WebkitBackdropFilter: 'blur(24px) saturate(180%)', border: '1px solid var(--s-card-b)', borderRadius: '20px', boxShadow: 'var(--s-card-shadow)' } as React.CSSProperties;
 
 const actionLabels: Record<string, string> = {
   email_approved: 'Email Approved', email_rejected: 'Email Rejected',
@@ -56,7 +56,7 @@ export default function AuditLog() {
         ].map(s => (
           <div key={s.label} style={card} className="p-5">
             <p className="text-[10px] text-white/25 uppercase tracking-widest mb-2">{s.label}</p>
-            <p className="text-3xl font-bold tabular-nums" style={{ color: (s as any).active ? B : 'rgba(255,255,255,0.5)' }}>{s.value}</p>
+            <p className="text-3xl font-bold tabular-nums" style={{ color: (s as any).active ? B : 'var(--tc-50)' }}>{s.value}</p>
           </div>
         ))}
       </div>
@@ -67,7 +67,7 @@ export default function AuditLog() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3 w-3 text-white/25" />
           <input value={filter} onChange={e => setFilter(e.target.value)} placeholder="Filter…"
             className="w-full pl-8 pr-3 py-2 rounded-xl text-xs text-white placeholder:text-white/20 focus:outline-none"
-            style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }} />
+            style={{ background: 'var(--s-input)', border: '1px solid rgba(255,255,255,0.06)' }} />
         </div>
         <div className="flex gap-1.5 flex-wrap">
           {[{ label: 'All', val: null }, ...agents.map(a => ({ label: a.split(' ')[0], val: a }))].map(({ label, val }) => (
@@ -75,13 +75,13 @@ export default function AuditLog() {
               className="h-8 px-3 rounded-lg text-xs font-medium transition-colors"
               style={agentFilter === val
                 ? { background: `${B}20`, color: B, border: `1px solid ${B}30` }
-                : { background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.35)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                : { background: 'var(--s-hover)', color: 'var(--tc-35)', border: '1px solid rgba(255,255,255,0.06)' }}>
               {label}
             </button>
           ))}
         </div>
         <button onClick={fetchLog} className="h-8 w-8 rounded-lg flex items-center justify-center text-white/25 hover:text-white/50 transition-colors ml-auto"
-          style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}>
+          style={{ background: 'var(--s-hover)', border: '1px solid rgba(255,255,255,0.06)' }}>
           <RefreshCw className="h-3.5 w-3.5" />
         </button>
       </div>
@@ -122,11 +122,11 @@ export default function AuditLog() {
                     </span>
                   </div>
                   {isOpen && (
-                    <div className="px-5 pb-3 pt-1 space-y-2" style={{ background: 'rgba(255,255,255,0.02)' }}>
+                    <div className="px-5 pb-3 pt-1 space-y-2" style={{ background: 'var(--s-hover)' }}>
                       {entry.error_message && <p className="text-[11px] text-white/40">{entry.error_message}</p>}
                       {entry.duration_ms != null && <p className="text-[10px] text-white/25">{entry.duration_ms}ms</p>}
                       {entry.details && (
-                        <pre className="text-[9px] text-white/40 rounded-lg p-2 max-h-24 overflow-auto" style={{ background: 'rgba(255,255,255,0.03)' }}>
+                        <pre className="text-[9px] text-white/40 rounded-lg p-2 max-h-24 overflow-auto" style={{ background: 'var(--s-card)' }}>
                           {JSON.stringify(entry.details, null, 2)}
                         </pre>
                       )}
@@ -140,11 +140,11 @@ export default function AuditLog() {
         <div className="flex items-center justify-between px-5 py-3 border-t border-white/5">
           <button onClick={() => setPage(p => Math.max(0, p-1))} disabled={page===0}
             className="h-8 px-3 rounded-lg text-xs text-white/30 hover:text-white/60 disabled:opacity-20 transition-colors"
-            style={{ background: 'rgba(255,255,255,0.04)' }}>Previous</button>
+            style={{ background: 'var(--s-hover)' }}>Previous</button>
           <span className="text-[10px] text-white/20">Page {page+1}</span>
           <button onClick={() => setPage(p => p+1)} disabled={entries.length<PAGE}
             className="h-8 px-3 rounded-lg text-xs text-white/30 hover:text-white/60 disabled:opacity-20 transition-colors"
-            style={{ background: 'rgba(255,255,255,0.04)' }}>Next</button>
+            style={{ background: 'var(--s-hover)' }}>Next</button>
         </div>
       </div>
     </div>

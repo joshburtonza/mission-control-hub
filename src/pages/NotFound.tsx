@@ -11,7 +11,7 @@ const NotFound = () => {
   return (
     <div className="flex items-center justify-center min-h-[60vh]">
       <div className="text-center">
-        <div className="rounded-2xl bg-card p-8 inline-block">
+        <div className="rounded-2xl p-8 inline-block" style={{ background: 'rgba(255,255,255,0.03)', backdropFilter: 'blur(24px)', border: '1px solid rgba(255,255,255,0.07)' }}>
           <h1 className="text-5xl font-bold text-card-foreground mb-2">404</h1>
           <p className="text-sm text-card-foreground/40 mb-4">Page not found</p>
           <a

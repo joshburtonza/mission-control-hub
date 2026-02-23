@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useTheme } from 'next-themes';
 import { supabase } from '@/integrations/supabase/client';
 import {
   AreaChart, Area, BarChart, Bar,
@@ -52,18 +53,23 @@ function AnimNum({ value }: { value: number }) {
   return <>R{v}</>;
 }
 
-/* ── Tooltip ── */
-function Tip({ active, payload, label }: any) {
+/* ── Tooltip (theme-aware) ── */
+function Tip({ active, payload, label, isDark }: any) {
   if (!active || !payload?.length) return null;
   return (
     <div className="rounded-xl px-3.5 py-2.5"
-      style={{ background: '#111', border: '1px solid rgba(75,158,255,0.2)', boxShadow: `0 0 20px ${B1}20` }}>
-      <p className="text-[9px] text-white/30 uppercase tracking-widest mb-1.5">{label}</p>
+      style={{
+        background: isDark ? '#111827' : '#ffffff',
+        border: `1px solid ${isDark ? 'rgba(75,158,255,0.2)' : 'rgba(75,158,255,0.3)'}`,
+        boxShadow: `0 4px 20px ${isDark ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.12)'}`,
+      }}>
+      <p className="text-[9px] uppercase tracking-widest mb-1.5"
+        style={{ color: isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.4)' }}>{label}</p>
       {payload.map((p: any) => (
         <div key={p.name} className="flex items-center gap-2 text-[11px]">
           <div className="h-[3px] w-3 rounded-full" style={{ background: p.stroke || p.fill || B1 }} />
-          <span className="text-white/40 capitalize">{p.name}</span>
-          <span className="text-white font-semibold ml-auto pl-3">{fmtFull(p.value)}</span>
+          <span className="capitalize" style={{ color: isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.5)' }}>{p.name}</span>
+          <span className="font-semibold ml-auto pl-3" style={{ color: isDark ? '#fff' : '#111' }}>{fmtFull(p.value)}</span>
         </div>
       ))}
     </div>
@@ -104,6 +110,9 @@ function Ring({ pct, size = 110 }: { pct: number; size?: number }) {
    Page
 ════════════════════════════════════════ */
 export default function Finances() {
+  const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme !== 'light';
+
   const [entries, setEntries]         = useState<IncomeEntry[]>([]);
   const [debt, setDebt]               = useState<DebtEntry[]>([]);
   const [loading, setLoading]         = useState(true);
@@ -206,17 +215,43 @@ export default function Finances() {
   );
 
   /* shared card style */
-  const card = {
-    background: '#0d0d0d',
-    border: '1px solid rgba(255,255,255,0.06)',
+  const card = isDark ? {
+    background: 'rgba(255,255,255,0.03)',
+    backdropFilter: 'blur(24px) saturate(180%)',
+    WebkitBackdropFilter: 'blur(24px) saturate(180%)',
+    border: '1px solid rgba(255,255,255,0.07)',
     borderRadius: '20px',
+    boxShadow: '0 1px 0 rgba(255,255,255,0.05) inset, 0 8px 32px rgba(0,0,0,0.4)',
+  } as React.CSSProperties : {
+    background: '#ffffff',
+    border: '1px solid rgba(0,0,0,0.07)',
+    borderRadius: '20px',
+    boxShadow: '0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.04)',
   } as React.CSSProperties;
 
   /* dot grid pattern for chart backgrounds */
   const dotGrid = {
-    backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.06) 1px, transparent 1px)',
+    backgroundImage: isDark
+      ? 'radial-gradient(circle, rgba(255,255,255,0.06) 1px, transparent 1px)'
+      : 'radial-gradient(circle, rgba(0,0,0,0.06) 1px, transparent 1px)',
     backgroundSize: '22px 22px',
   } as React.CSSProperties;
+
+  /* theme-aware text helpers */
+  const txt = {
+    label: isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.4)',
+    body:  isDark ? 'rgba(255,255,255,0.7)'  : 'rgba(0,0,0,0.7)',
+    muted: isDark ? 'rgba(255,255,255,0.2)'  : 'rgba(0,0,0,0.3)',
+    head:  isDark ? '#ffffff'                 : '#111111',
+    sub:   isDark ? 'rgba(255,255,255,0.5)'  : 'rgba(0,0,0,0.5)',
+    divider: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.06)',
+    inputBg: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)',
+    inputBorder: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.1)',
+    rowHover: isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)',
+    chartAxis: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.35)',
+    chartGrid: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.05)',
+    ringTrack: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.06)',
+  };
 
   return (
     <div className="space-y-4">
@@ -228,10 +263,10 @@ export default function Finances() {
         <div className="md:col-span-2 p-6" style={card}>
           <div className="flex items-start justify-between mb-4">
             <div>
-              <p className="text-[10px] text-white/25 uppercase tracking-widest">Revenue Report</p>
+              <p className="text-[10px] uppercase tracking-widest" style={{ color: txt.label }}>Revenue Report</p>
               <div className="flex items-center gap-2 mt-0.5">
                 {mom !== 0 && (
-                  <span className="text-[11px]" style={{ color: mom > 0 ? B1 : 'rgba(255,255,255,0.3)' }}>
+                  <span className="text-[11px]" style={{ color: mom > 0 ? B1 : txt.muted }}>
                     {mom > 0
                       ? <TrendingUp className="inline h-3 w-3 mr-0.5" />
                       : <TrendingDown className="inline h-3 w-3 mr-0.5" />}
@@ -241,7 +276,8 @@ export default function Finances() {
               </div>
             </div>
             <button onClick={() => load(true)}
-              className="p-1.5 rounded-lg text-white/20 hover:text-white/50 hover:bg-white/5 transition-all">
+              className="p-1.5 rounded-lg transition-all"
+              style={{ color: txt.muted }}>
               <RefreshCw className={cn('h-3.5 w-3.5', spin && 'animate-spin')} />
             </button>
           </div>
@@ -249,7 +285,7 @@ export default function Finances() {
           {/* Chart with dot-grid background */}
           <div className="rounded-xl overflow-hidden" style={dotGrid}>
             {chartData.length === 0 ? (
-              <div className="h-52 flex items-center justify-center text-sm text-white/20">
+              <div className="h-52 flex items-center justify-center text-sm" style={{ color: txt.muted }}>
                 No data yet
               </div>
             ) : (
@@ -257,22 +293,22 @@ export default function Finances() {
                 <AreaChart data={chartData} margin={{ top: 16, right: 16, left: -28, bottom: 0 }}>
                   <defs>
                     <linearGradient id="lg0" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#4B9EFF" stopOpacity={0.35} />
+                      <stop offset="0%" stopColor="#4B9EFF" stopOpacity={isDark ? 0.35 : 0.25} />
                       <stop offset="100%" stopColor="#4B9EFF" stopOpacity={0} />
                     </linearGradient>
                     <linearGradient id="lg1" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#4B9EFF" stopOpacity={0.15} />
+                      <stop offset="0%" stopColor="#4B9EFF" stopOpacity={isDark ? 0.15 : 0.12} />
                       <stop offset="100%" stopColor="#4B9EFF" stopOpacity={0} />
                     </linearGradient>
                     <linearGradient id="lg2" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#4B9EFF" stopOpacity={0.08} />
+                      <stop offset="0%" stopColor="#4B9EFF" stopOpacity={isDark ? 0.08 : 0.06} />
                       <stop offset="100%" stopColor="#4B9EFF" stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid stroke="rgba(255,255,255,0.03)" vertical={false} />
-                  <XAxis dataKey="month" tick={{ fontSize: 10, fill: 'rgba(255,255,255,0.2)' }} axisLine={false} tickLine={false} />
+                  <CartesianGrid stroke={txt.chartGrid} vertical={false} />
+                  <XAxis dataKey="month" tick={{ fontSize: 10, fill: txt.chartAxis }} axisLine={false} tickLine={false} />
                   <YAxis hide />
-                  <Tooltip content={<Tip />} cursor={{ stroke: 'rgba(75,158,255,0.15)', strokeWidth: 1, strokeDasharray: '4 4' }} />
+                  <Tooltip content={<Tip isDark={isDark} />} cursor={{ stroke: 'rgba(75,158,255,0.2)', strokeWidth: 1, strokeDasharray: '4 4' }} />
                   {clients.map((c, i) => {
                     const key = c.split(' ')[0];
                     const colors = ['#4B9EFF', '#4B9EFFaa', '#4B9EFF55'];
@@ -296,39 +332,39 @@ export default function Finances() {
             <div>
               <div className="flex items-center gap-2 mb-1">
                 <div className="h-2 w-2 rounded-full" style={{ background: B1, boxShadow:`0 0 6px ${B1}` }} />
-                <span className="text-[10px] text-white/30 uppercase tracking-wider">Monthly</span>
+                <span className="text-[10px] uppercase tracking-wider" style={{ color: txt.label }}>Monthly</span>
               </div>
-              <p className="text-2xl font-bold text-white tabular-nums leading-none">
+              <p className="text-2xl font-bold tabular-nums leading-none" style={{ color: txt.head }}>
                 <AnimNum value={total} />
               </p>
-              <p className="text-[10px] text-white/20 mt-0.5">{collRate}% collected</p>
+              <p className="text-[10px] mt-0.5" style={{ color: txt.muted }}>{collRate}% collected</p>
             </div>
             <div>
               <div className="flex items-center gap-2 mb-1">
                 <div className="h-2 w-2 rounded-full" style={{ background: B2 }} />
-                <span className="text-[10px] text-white/30 uppercase tracking-wider">All Time</span>
+                <span className="text-[10px] uppercase tracking-wider" style={{ color: txt.label }}>All Time</span>
               </div>
-              <p className="text-2xl font-bold text-white tabular-nums leading-none">
+              <p className="text-2xl font-bold tabular-nums leading-none" style={{ color: txt.head }}>
                 <AnimNum value={allTime} />
               </p>
-              <p className="text-[10px] text-white/20 mt-0.5">{months.length} months tracked</p>
+              <p className="text-[10px] mt-0.5" style={{ color: txt.muted }}>{months.length} months tracked</p>
             </div>
           </div>
 
           {/* Client breakdown table */}
           {clientTotals.length > 0 && (
-            <div className="mt-4 pt-4 border-t border-white/5 space-y-2.5">
+            <div className="mt-4 pt-4 space-y-2.5" style={{ borderTop: `1px solid ${txt.divider}` }}>
               {clientTotals.map((c, i) => (
                 <div key={c.name} className="flex items-center justify-between">
                   <div className="flex items-center gap-2.5">
                     <div className="h-1.5 w-1.5 rounded-full" style={{ background: lineColors[i] }} />
-                    <span className="text-xs text-white/50">{c.name}</span>
+                    <span className="text-xs" style={{ color: txt.sub }}>{c.name}</span>
                   </div>
                   <div className="flex items-center gap-4">
-                    <span className="text-[10px] text-white/25">
+                    <span className="text-[10px]" style={{ color: txt.muted }}>
                       {c.amount > 0 ? Math.round((c.paid/c.amount)*100) : 0}% paid
                     </span>
-                    <span className="text-xs font-semibold text-white/70 tabular-nums w-20 text-right">
+                    <span className="text-xs font-semibold tabular-nums w-20 text-right" style={{ color: txt.body }}>
                       {fmtFull(c.amount)}
                     </span>
                   </div>
@@ -340,14 +376,21 @@ export default function Finances() {
 
         {/* Collection ring card */}
         <div className="p-6 flex flex-col" style={card}>
-          <p className="text-[10px] text-white/25 uppercase tracking-widest mb-5">Collection Rate</p>
+          <p className="text-[10px] uppercase tracking-widest mb-5" style={{ color: txt.label }}>Collection Rate</p>
 
           <div className="flex-1 flex flex-col items-center justify-center gap-2">
             <div className="relative">
-              <Ring pct={collRate} size={130} />
+              <svg width={130} height={130} className="-rotate-90">
+                <circle cx={65} cy={65} r={52} fill="none" strokeWidth="5" stroke={txt.ringTrack} />
+                <circle cx={65} cy={65} r={52} fill="none" strokeWidth="5"
+                  stroke={B1} strokeLinecap="round"
+                  strokeDasharray={`${(collRate/100) * 2 * Math.PI * 52} ${2 * Math.PI * 52}`}
+                  style={{ filter: isDark ? `drop-shadow(0 0 8px ${B1})` : 'none', transition: 'stroke-dasharray 1.3s cubic-bezier(0.4,0,0.2,1)' }}
+                />
+              </svg>
               <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-3xl font-bold text-white tabular-nums">{collRate}<span className="text-lg">%</span></span>
-                <span className="text-[9px] text-white/25 uppercase tracking-wider">this month</span>
+                <span className="text-3xl font-bold tabular-nums" style={{ color: txt.head }}>{collRate}<span className="text-lg">%</span></span>
+                <span className="text-[9px] uppercase tracking-wider" style={{ color: txt.muted }}>this month</span>
               </div>
             </div>
           </div>
@@ -358,14 +401,16 @@ export default function Finances() {
               { label: 'Outstanding', val: outstanding, bright: false },
               { label: 'Debt',        val: totalDebt,   bright: false },
             ].map(r => (
-              <div key={r.label} className="flex justify-between items-center py-2 border-t border-white/5">
+              <div key={r.label} className="flex justify-between items-center py-2"
+                style={{ borderTop: `1px solid ${txt.divider}` }}>
                 <div className="flex items-center gap-2">
                   <div className="h-1.5 w-1.5 rounded-full"
-                    style={{ background: r.bright ? B1 : 'rgba(255,255,255,0.15)',
-                             boxShadow: r.bright ? `0 0 5px ${B1}` : 'none' }} />
-                  <span className="text-[11px] text-white/40">{r.label}</span>
+                    style={{ background: r.bright ? B1 : txt.muted,
+                             boxShadow: r.bright && isDark ? `0 0 5px ${B1}` : 'none' }} />
+                  <span className="text-[11px]" style={{ color: txt.sub }}>{r.label}</span>
                 </div>
-                <span className={cn('text-[11px] font-semibold tabular-nums', r.bright ? 'text-white' : 'text-white/50')}>
+                <span className="text-[11px] font-semibold tabular-nums"
+                  style={{ color: r.bright ? txt.head : txt.sub }}>
                   {fmtFull(r.val)}
                 </span>
               </div>
@@ -376,10 +421,10 @@ export default function Finances() {
 
       {/* ══ Row 2: Bar chart ══ */}
       <div className="p-6" style={card}>
-        <p className="text-[10px] text-white/25 uppercase tracking-widest mb-5">Monthly Breakdown</p>
+        <p className="text-[10px] uppercase tracking-widest mb-5" style={{ color: txt.label }}>Monthly Breakdown</p>
         <div className="rounded-xl overflow-hidden" style={dotGrid}>
           {barData.length === 0 ? (
-            <div className="h-44 flex items-center justify-center text-sm text-white/20">No data</div>
+            <div className="h-44 flex items-center justify-center text-sm" style={{ color: txt.muted }}>No data</div>
           ) : (
             <ResponsiveContainer width="100%" height={180}>
               <BarChart data={barData} margin={{ top: 8, right: 8, left: -28, bottom: 0 }} barGap={3} barCategoryGap="28%">
@@ -393,14 +438,14 @@ export default function Finances() {
                     <stop offset="100%" stopColor={B1} stopOpacity={0.04} />
                   </linearGradient>
                   <filter id="barshadow">
-                    <feDropShadow dx="0" dy="-4" stdDeviation="6" floodColor={B1} floodOpacity="0.5" />
+                    <feDropShadow dx="0" dy="-4" stdDeviation="6" floodColor={B1} floodOpacity={isDark ? "0.5" : "0.3"} />
                   </filter>
                 </defs>
-                <CartesianGrid stroke="rgba(255,255,255,0.03)" vertical={false} />
-                <XAxis dataKey="month" tick={{ fontSize:10, fill:'rgba(255,255,255,0.2)' }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize:10, fill:'rgba(255,255,255,0.2)' }} axisLine={false} tickLine={false}
+                <CartesianGrid stroke={txt.chartGrid} vertical={false} />
+                <XAxis dataKey="month" tick={{ fontSize:10, fill:txt.chartAxis }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize:10, fill:txt.chartAxis }} axisLine={false} tickLine={false}
                   tickFormatter={v => v >= 1000 ? `${Math.round(v/1000)}k` : String(v)} />
-                <Tooltip content={<Tip />} cursor={{ fill:'rgba(75,158,255,0.04)' }} />
+                <Tooltip content={<Tip isDark={isDark} />} cursor={{ fill: isDark ? 'rgba(75,158,255,0.04)' : 'rgba(75,158,255,0.06)' }} />
                 <Bar dataKey="collected"   name="collected"   fill="url(#bg1)" radius={[5,5,1,1]}
                   animationDuration={1000} animationEasing="ease-out"
                   style={{ filter:'url(#barshadow)' }} />
@@ -415,9 +460,9 @@ export default function Finances() {
             <div key={lbl} className="flex items-center gap-1.5">
               <div className="h-[3px] w-4 rounded-full" style={{
                 background: col,
-                boxShadow: glow ? `0 0 6px ${col}` : 'none',
+                boxShadow: glow && isDark ? `0 0 6px ${col}` : 'none',
               }} />
-              <span className="text-[10px] text-white/25">{lbl}</span>
+              <span className="text-[10px]" style={{ color: txt.muted }}>{lbl}</span>
             </div>
           ))}
         </div>
@@ -428,30 +473,31 @@ export default function Finances() {
 
         {/* This month entries */}
         <div style={card}>
-          <div className="px-5 py-4 border-b border-white/5 flex items-center justify-between">
-            <p className="text-sm font-semibold text-white">{thisMonth}</p>
-            <p className="text-[10px] text-white/25">{thisM.length} entries · {fmtFull(total)}</p>
+          <div className="px-5 py-4 flex items-center justify-between" style={{ borderBottom: `1px solid ${txt.divider}` }}>
+            <p className="text-sm font-semibold" style={{ color: txt.head }}>{thisMonth}</p>
+            <p className="text-[10px]" style={{ color: txt.muted }}>{thisM.length} entries · {fmtFull(total)}</p>
           </div>
           {thisM.length === 0 ? (
-            <div className="p-10 text-center text-sm text-white/20">No entries this month</div>
+            <div className="p-10 text-center text-sm" style={{ color: txt.muted }}>No entries this month</div>
           ) : (
-            <div className="divide-y divide-white/[0.04]">
+            <div>
               {thisM.map(e => {
                 const paid = e.status === 'paid';
                 return (
-                  <div key={e.id} className="flex items-center justify-between px-5 py-3 hover:bg-white/[0.02] transition-colors">
+                  <div key={e.id} className="flex items-center justify-between px-5 py-3 transition-colors"
+                    style={{ borderBottom: `1px solid ${txt.divider}` }}>
                     <div className="flex items-center gap-3 min-w-0">
                       <div className="h-1.5 w-1.5 rounded-full shrink-0"
-                        style={{ background: paid ? B1 : 'rgba(255,255,255,0.15)',
-                                 boxShadow: paid ? `0 0 5px ${B1}` : 'none' }} />
+                        style={{ background: paid ? B1 : txt.muted,
+                                 boxShadow: paid && isDark ? `0 0 5px ${B1}` : 'none' }} />
                       <div className="min-w-0">
-                        <p className="text-[13px] text-white/70 truncate">{e.project}</p>
-                        <p className="text-[10px] text-white/25 mt-0.5">{e.client}</p>
+                        <p className="text-[13px] truncate" style={{ color: txt.body }}>{e.project}</p>
+                        <p className="text-[10px] mt-0.5" style={{ color: txt.muted }}>{e.client}</p>
                       </div>
                     </div>
                     <div className="text-right shrink-0 ml-3">
-                      <p className="text-[13px] font-semibold text-white tabular-nums">{fmtFull(e.amount)}</p>
-                      <p className="text-[10px] mt-0.5" style={{ color: paid ? B1 : 'rgba(255,255,255,0.25)' }}>
+                      <p className="text-[13px] font-semibold tabular-nums" style={{ color: txt.head }}>{fmtFull(e.amount)}</p>
+                      <p className="text-[10px] mt-0.5" style={{ color: paid ? B1 : txt.muted }}>
                         {paid ? 'Paid' : e.status === 'invoice_sent' ? 'Sent' : 'Pending'}
                       </p>
                     </div>
@@ -464,8 +510,8 @@ export default function Finances() {
 
         {/* Debt tracker */}
         <div style={card}>
-          <div className="px-5 py-4 border-b border-white/5 flex items-center justify-between">
-            <p className="text-sm font-semibold text-white">Debt Tracker</p>
+          <div className="px-5 py-4 flex items-center justify-between" style={{ borderBottom: `1px solid ${txt.divider}` }}>
+            <p className="text-sm font-semibold" style={{ color: txt.head }}>Debt Tracker</p>
             <button onClick={() => setShowAddDebt(true)}
               className="flex items-center gap-1 text-[11px] font-medium transition-colors"
               style={{ color: B1 }}>
@@ -474,10 +520,10 @@ export default function Finances() {
           </div>
 
           {showAddDebt && (
-            <div className="p-4 border-b border-white/5 space-y-2.5">
+            <div className="p-4 space-y-2.5" style={{ borderBottom: `1px solid ${txt.divider}` }}>
               <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-white/60">New entry</span>
-                <button onClick={() => setShowAddDebt(false)} className="text-white/20 hover:text-white/50"><X className="h-3.5 w-3.5" /></button>
+                <span className="text-xs font-medium" style={{ color: txt.body }}>New entry</span>
+                <button onClick={() => setShowAddDebt(false)} style={{ color: txt.muted }}><X className="h-3.5 w-3.5" /></button>
               </div>
               <div className="grid grid-cols-2 gap-2">
                 {[
@@ -490,43 +536,43 @@ export default function Finances() {
                   <input key={f.key} placeholder={f.ph} type={f.type||'text'}
                     value={(newDebt as any)[f.key]}
                     onChange={ev => setNewDebt(p => ({...p,[f.key]:ev.target.value}))}
-                    className={cn(f.span?'col-span-2':'','rounded-lg text-white/80 text-xs px-3 py-1.5 focus:outline-none placeholder:text-white/20')}
-                    style={{ background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.07)' }}
+                    className={cn(f.span?'col-span-2':'','rounded-lg text-xs px-3 py-1.5 focus:outline-none')}
+                    style={{ background: txt.inputBg, border: `1px solid ${txt.inputBorder}`, color: txt.body }}
                   />
                 ))}
               </div>
               <button onClick={addDebt} className="w-full rounded-lg text-white text-xs font-semibold py-2 transition-all"
-                style={{ background: B1, boxShadow:`0 0 14px ${B1}50` }}>
+                style={{ background: B1, boxShadow: isDark ? `0 0 14px ${B1}50` : 'none' }}>
                 Save
               </button>
             </div>
           )}
 
           {debt.length === 0 ? (
-            <div className="p-10 text-center text-sm text-white/20">No debts tracked</div>
+            <div className="p-10 text-center text-sm" style={{ color: txt.muted }}>No debts tracked</div>
           ) : (
-            <div className="divide-y divide-white/[0.04]">
+            <div>
               {debt.map(d => {
                 const pct  = Math.max(0, Math.min(100, d.total_amount > 0 ? ((d.total_amount - d.remaining_amount) / d.total_amount) * 100 : 0));
                 const mths = d.monthly_payment > 0 ? Math.ceil(d.remaining_amount / d.monthly_payment) : null;
                 return (
-                  <div key={d.id} className="px-5 py-4 space-y-2.5">
+                  <div key={d.id} className="px-5 py-4 space-y-2.5" style={{ borderBottom: `1px solid ${txt.divider}` }}>
                     <div className="flex items-start justify-between">
-                      <span className="text-[13px] font-semibold text-white/80">{d.name}</span>
+                      <span className="text-[13px] font-semibold" style={{ color: txt.body }}>{d.name}</span>
                       <div className="text-right">
-                        <p className="text-[11px] text-white/50 font-medium">{fmtFull(d.monthly_payment)}/mo</p>
-                        {mths && <p className="text-[9px] text-white/20">{mths}mo left</p>}
+                        <p className="text-[11px] font-medium" style={{ color: txt.sub }}>{fmtFull(d.monthly_payment)}/mo</p>
+                        {mths && <p className="text-[9px]" style={{ color: txt.muted }}>{mths}mo left</p>}
                       </div>
                     </div>
-                    <div className="flex justify-between text-[10px] text-white/25">
+                    <div className="flex justify-between text-[10px]" style={{ color: txt.muted }}>
                       <span>{fmtFull(d.remaining_amount)} remaining</span>
                       <span>{Math.round(pct)}%</span>
                     </div>
-                    <div className="h-[3px] rounded-full overflow-hidden" style={{ background:'rgba(255,255,255,0.05)' }}>
+                    <div className="h-[3px] rounded-full overflow-hidden" style={{ background: txt.ringTrack }}>
                       <div className="h-full rounded-full transition-all duration-1000"
-                        style={{ width:`${pct}%`, background: B1, boxShadow:`0 0 8px ${B1}` }} />
+                        style={{ width:`${pct}%`, background: B1, boxShadow: isDark ? `0 0 8px ${B1}` : 'none' }} />
                     </div>
-                    {d.notes && <p className="text-[10px] text-white/20">{d.notes}</p>}
+                    {d.notes && <p className="text-[10px]" style={{ color: txt.muted }}>{d.notes}</p>}
                   </div>
                 );
               })}

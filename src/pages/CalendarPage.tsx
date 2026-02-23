@@ -11,7 +11,7 @@ interface Reminder {
 }
 
 const B = '#4B9EFF';
-const card = { background: '#0d0d0d', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '20px' } as React.CSSProperties;
+const card = { background: 'var(--s-card)', backdropFilter: 'blur(24px) saturate(180%)', WebkitBackdropFilter: 'blur(24px) saturate(180%)', border: '1px solid var(--s-card-b)', borderRadius: '20px', boxShadow: 'var(--s-card-shadow)' } as React.CSSProperties;
 
 function fmtTime(iso: string, allDay: boolean) {
   if (allDay) return 'All day';
@@ -79,7 +79,7 @@ export default function CalendarPage() {
                     <p className="text-sm text-white/80">{r.title}</p>
                   </div>
                   {due && (
-                    <p className="text-[11px] shrink-0 ml-4" style={{ color: overdue ? 'rgba(255,255,255,0.4)' : B }}>
+                    <p className="text-[11px] shrink-0 ml-4" style={{ color: overdue ? 'var(--tc-40)' : B }}>
                       {overdue ? 'Overdue · ' : ''}{due.toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit', hour12: false })}
                     </p>
                   )}
@@ -100,7 +100,7 @@ export default function CalendarPage() {
           <div key={dayLabel} style={card} className="overflow-hidden">
             <div className="px-5 py-4 border-b border-white/5">
               <p className="text-[10px] font-semibold uppercase tracking-widest"
-                style={{ color: dayLabel === 'Today' ? B : 'rgba(255,255,255,0.3)' }}>
+                style={{ color: dayLabel === 'Today' ? B : 'var(--tc-30)' }}>
                 {dayLabel}
               </p>
             </div>
@@ -112,9 +112,9 @@ export default function CalendarPage() {
                   <div key={ev.id} className="px-5 py-4">
                     <div className="flex items-start gap-3">
                       <div className="h-1.5 w-1.5 rounded-full mt-1.5 shrink-0"
-                        style={{ background: holiday ? 'rgba(255,255,255,0.15)' : isToday ? B : 'rgba(255,255,255,0.2)', boxShadow: isToday && !holiday ? `0 0 5px ${B}` : 'none' }} />
+                        style={{ background: holiday ? 'var(--tc-15)' : isToday ? B : 'var(--tc-20)', boxShadow: isToday && !holiday ? `0 0 5px ${B}` : 'none' }} />
                       <div className="min-w-0">
-                        <p className="text-sm font-medium" style={{ color: holiday ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.85)' }}>{ev.title}</p>
+                        <p className="text-sm font-medium" style={{ color: holiday ? 'var(--tc-30)' : 'var(--tc-85)' }}>{ev.title}</p>
                         {ev.description && <p className="text-[11px] text-white/30 mt-0.5 truncate">{ev.description}</p>}
                         <div className="flex items-center gap-3 mt-1.5 flex-wrap">
                           <div className="flex items-center gap-1 text-[10px] text-white/25">

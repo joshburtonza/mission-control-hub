@@ -5,7 +5,7 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Shield, Bot, Bell, Users, Save, RefreshCw } from 'lucide-react';
+import { Shield, Bell, Users, Save, RefreshCw } from 'lucide-react';
 
 interface ClientConfig {
   id: string;
@@ -16,17 +16,12 @@ interface ClientConfig {
 }
 
 export default function SettingsPage() {
-  const [autoResponse, setAutoResponse] = useState(true);
-  const [responseTimeMin, setResponseTimeMin] = useState('15');
-  const [responseTimeMax, setResponseTimeMax] = useState('60');
-  const [escalationKeywords, setEscalationKeywords] = useState('urgent, asap, bug, broken, down, error');
-  const [ccEmails, setCcEmails] = useState('josh@amalfiai.com, salah@amalfiai.com');
   const [clients, setClients] = useState<ClientConfig[]>([]);
   const [telegramToken, setTelegramToken] = useState('');
   const [telegramChatId, setTelegramChatId] = useState('');
   const [discordWebhook, setDiscordWebhook] = useState('');
   const [operatorName, setOperatorName] = useState('Josh');
-  const [killSwitchPath, setKillSwitchPath] = useState('/Users/josh/.openclaw/KILL_SWITCH');
+  const [killSwitchPath, setKillSwitchPath] = useState('/Users/henryburton/.openclaw/KILL_SWITCH');
   const [saving, setSaving] = useState(false);
 
   useEffect(() => { fetchData(); }, []);
@@ -93,12 +88,14 @@ export default function SettingsPage() {
     }
   };
 
+  const B = '#4B9EFF';
+  const glassCard = { background: 'var(--s-card)', backdropFilter: 'blur(24px) saturate(180%)', WebkitBackdropFilter: 'blur(24px) saturate(180%)', border: '1px solid var(--s-card-b)', borderRadius: '20px', boxShadow: 'var(--s-card-shadow)' } as React.CSSProperties;
   const inputClass = "h-9 rounded-xl bg-white/5 border-0 text-sm text-card-foreground placeholder:text-card-foreground/30 focus-visible:ring-primary/30";
 
   return (
     <div className="space-y-6 max-w-3xl">
       {/* Operator */}
-      <div className="rounded-2xl bg-card p-5">
+      <div style={glassCard} className="p-5">
         <div className="flex items-center gap-2 mb-4">
           <Shield className="h-4 w-4 text-primary" />
           <h3 className="text-sm font-semibold text-card-foreground">Operator Settings</h3>
@@ -121,7 +118,7 @@ export default function SettingsPage() {
       </div>
 
       {/* Clients */}
-      <div className="rounded-2xl bg-card p-5">
+      <div style={glassCard} className="p-5">
         <div className="flex items-center gap-2 mb-4">
           <Users className="h-4 w-4 text-primary" />
           <h3 className="text-sm font-semibold text-card-foreground">Client Accounts</h3>
@@ -137,7 +134,7 @@ export default function SettingsPage() {
                 </p>
               </div>
               <div className="flex items-center gap-2">
-                <span className={`text-[10px] font-medium ${client.status === 'active' ? 'text-success' : 'text-warning'}`}>
+                <span className="text-[10px] font-medium" style={{ color: client.status === 'active' ? B : 'var(--tc-40)' }}>
                   {client.status?.toUpperCase()}
                 </span>
                 <Switch
@@ -150,43 +147,8 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      {/* Sophia CSM */}
-      <div className="rounded-2xl bg-card p-5">
-        <div className="flex items-center gap-2 mb-4">
-          <Bot className="h-4 w-4 text-primary" />
-          <h3 className="text-sm font-semibold text-card-foreground">Sophia CSM — Config</h3>
-        </div>
-        <div className="space-y-4">
-          <div className="flex items-center justify-between p-3 rounded-xl bg-white/5">
-            <div>
-              <p className="text-xs text-card-foreground font-medium">Auto-Response</p>
-              <p className="text-[10px] text-card-foreground/30">Send routine responses without approval</p>
-            </div>
-            <Switch checked={autoResponse} onCheckedChange={setAutoResponse} />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label className="text-[10px] text-card-foreground/40 uppercase tracking-wider">Min Response (mins)</Label>
-              <Input type="number" value={responseTimeMin} onChange={e => setResponseTimeMin(e.target.value)} className={inputClass} />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-[10px] text-card-foreground/40 uppercase tracking-wider">Max Response (mins)</Label>
-              <Input type="number" value={responseTimeMax} onChange={e => setResponseTimeMax(e.target.value)} className={inputClass} />
-            </div>
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-[10px] text-card-foreground/40 uppercase tracking-wider">Escalation Keywords</Label>
-            <Input value={escalationKeywords} onChange={e => setEscalationKeywords(e.target.value)} className={inputClass} />
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-[10px] text-card-foreground/40 uppercase tracking-wider">CC Emails</Label>
-            <Input value={ccEmails} onChange={e => setCcEmails(e.target.value)} className={inputClass} />
-          </div>
-        </div>
-      </div>
-
       {/* Integrations */}
-      <div className="rounded-2xl bg-card p-5">
+      <div style={glassCard} className="p-5">
         <div className="flex items-center gap-2 mb-4">
           <Bell className="h-4 w-4 text-primary" />
           <h3 className="text-sm font-semibold text-card-foreground">Integrations</h3>

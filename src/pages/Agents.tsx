@@ -1,14 +1,13 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Bot, Play, Pause, RotateCcw, Terminal, X } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { Bot, Terminal, X } from 'lucide-react';
 
 interface Agent { id: string; name: string; role: string; status: string | null; current_task: string | null; last_activity: string | null; }
 interface Task  { id: string; agent: string | null; task_type: string | null; status: string | null; payload: any; created_at: string | null; }
 
 const B = '#4B9EFF';
-const card = { background: '#0d0d0d', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '20px' } as React.CSSProperties;
+const card = { background: 'var(--s-card)', backdropFilter: 'blur(24px) saturate(180%)', WebkitBackdropFilter: 'blur(24px) saturate(180%)', border: '1px solid var(--s-card-b)', borderRadius: '20px', boxShadow: 'var(--s-card-shadow)' } as React.CSSProperties;
 const roleLabels: Record<string, string> = { csm: 'Customer Success', outreach: 'Cold Outreach', automation: 'Automation', monitor: 'Monitor' };
 const agentDesc: Record<string, string> = {
   'Sophia CSM':    'Monitors 3 client inboxes, drafts warm SA responses, routes escalations',
@@ -66,7 +65,7 @@ export default function Agents() {
         {stats.map(s => (
           <div key={s.label} style={card} className="p-5">
             <p className="text-[10px] text-white/25 uppercase tracking-widest mb-2">{s.label}</p>
-            <p className="text-3xl font-bold tabular-nums" style={{ color: s.active && s.value > 0 ? B : 'rgba(255,255,255,0.5)' }}>{s.value}</p>
+            <p className="text-3xl font-bold tabular-nums" style={{ color: s.active && s.value > 0 ? B : 'var(--tc-50)' }}>{s.value}</p>
           </div>
         ))}
       </div>
@@ -87,36 +86,36 @@ export default function Agents() {
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex items-center gap-3">
                     <div className="h-10 w-10 rounded-xl flex items-center justify-center"
-                      style={{ background: isOnline ? `${B}15` : 'rgba(255,255,255,0.04)', border: `1px solid ${isOnline ? `${B}30` : 'rgba(255,255,255,0.06)'}` }}>
-                      <Bot className="h-5 w-5" style={{ color: isOnline ? B : 'rgba(255,255,255,0.3)' }} />
+                      style={{ background: isOnline ? `${B}15` : 'var(--s-hover)', border: `1px solid ${isOnline ? `${B}30` : 'rgba(255,255,255,0.06)'}` }}>
+                      <Bot className="h-5 w-5" style={{ color: isOnline ? B : 'var(--tc-30)' }} />
                     </div>
                     <div>
                       <p className="text-sm font-semibold text-white">{agent.name}</p>
-                      <p className="text-[11px] text-white/30">{roleLabels[agent.role] || agent.role}</p>
+                      <p className="text-[11px]" style={{ color: 'var(--tc-30)' }}>{roleLabels[agent.role] || agent.role}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-1.5">
                     <div className="h-1.5 w-1.5 rounded-full"
-                      style={{ background: isOnline ? B : agent.status==='idle' ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.15)', boxShadow: isOnline ? `0 0 5px ${B}` : 'none' }} />
+                      style={{ background: isOnline ? B : agent.status==='idle' ? 'var(--tc-50)' : 'var(--tc-15)', boxShadow: isOnline ? `0 0 5px ${B}` : 'none' }} />
                     <span className="text-[10px] uppercase font-medium"
-                      style={{ color: isOnline ? B : agent.status==='idle' ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.2)' }}>
+                      style={{ color: isOnline ? B : agent.status==='idle' ? 'var(--tc-50)' : 'var(--tc-20)' }}>
                       {agent.status || 'offline'}
                     </span>
                   </div>
                 </div>
 
-                {agentDesc[agent.name] && <p className="text-[11px] text-white/30 leading-relaxed mb-3">{agentDesc[agent.name]}</p>}
+                {agentDesc[agent.name] && <p className="text-[11px] leading-relaxed mb-3" style={{ color: 'var(--tc-30)' }}>{agentDesc[agent.name]}</p>}
 
                 <div className="mb-3 border-t border-white/5 pt-3">
-                  <p className="text-[10px] text-white/20 uppercase tracking-widest mb-0.5">Current task</p>
-                  <p className="text-xs text-white/50 truncate">{agent.current_task || 'No active task'}</p>
+                  <p className="text-[10px] uppercase tracking-widest mb-0.5" style={{ color: 'var(--tc-20)' }}>Current task</p>
+                  <p className="text-xs truncate" style={{ color: 'var(--tc-50)' }}>{agent.current_task || 'No active task'}</p>
                 </div>
 
                 <div className="grid grid-cols-3 gap-1.5 mb-3 text-center">
                   {[['Active', at.filter(t => t.status==='executing').length],['Queued', at.filter(t => t.status==='queued').length],['Done', at.filter(t => t.status==='completed').length]].map(([l, v]: any) => (
-                    <div key={l} className="rounded-xl py-2" style={{ background: 'rgba(255,255,255,0.03)' }}>
-                      <p className="text-[9px] text-white/20 uppercase">{l}</p>
-                      <p className="text-sm font-bold" style={{ color: v > 0 ? B : 'rgba(255,255,255,0.3)' }}>{v}</p>
+                    <div key={l} className="rounded-xl py-2" style={{ background: 'var(--s-card)' }}>
+                      <p className="text-[9px] uppercase" style={{ color: 'var(--tc-20)' }}>{l}</p>
+                      <p className="text-sm font-bold" style={{ color: v > 0 ? B : 'var(--tc-30)' }}>{v}</p>
                     </div>
                   ))}
                 </div>
@@ -126,7 +125,7 @@ export default function Agents() {
                     <button key={label} disabled={updating === agent.id || (label==='Start' && agent.status==='online') || (label==='Pause' && agent.status==='idle')}
                       onClick={() => updateStatus(agent, status)}
                       className="flex-1 py-1.5 rounded-lg text-[10px] font-medium transition-all disabled:opacity-25"
-                      style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.4)' }}>
+                      style={{ background: 'var(--s-hover)', border: '1px solid rgba(255,255,255,0.06)', color: 'var(--tc-40)' }}>
                       {label}
                     </button>
                   ))}
@@ -145,24 +144,24 @@ export default function Agents() {
               <Terminal className="h-4 w-4" style={{ color: B }} />
               <p className="text-sm font-semibold text-white">{selected.name} — Task History</p>
             </div>
-            <button onClick={() => setSelected(null)} className="text-white/25 hover:text-white/50"><X className="h-4 w-4" /></button>
+            <button onClick={() => setSelected(null)} style={{ color: 'var(--tc-25)' }} className="hover:opacity-70"><X className="h-4 w-4" /></button>
           </div>
           <div className="space-y-1 max-h-64 overflow-auto">
             {agTasks(selected.name).length === 0 ? (
-              <p className="text-xs text-white/20 py-4 text-center">No tasks yet</p>
+              <p className="text-xs py-4 text-center" style={{ color: 'var(--tc-20)' }}>No tasks yet</p>
             ) : (
               agTasks(selected.name).map(task => {
                 const done = task.status==='completed', exec=task.status==='executing', fail=task.status==='failed';
                 return (
-                  <div key={task.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl" style={{ background: 'rgba(255,255,255,0.03)' }}>
+                  <div key={task.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl" style={{ background: 'var(--s-card)' }}>
                     <div className="h-1.5 w-1.5 rounded-full shrink-0"
-                      style={{ background: exec ? B : done ? `${B}60` : 'rgba(255,255,255,0.15)', boxShadow: exec ? `0 0 5px ${B}` : 'none' }} />
+                      style={{ background: exec ? B : done ? `${B}60` : 'var(--tc-15)', boxShadow: exec ? `0 0 5px ${B}` : 'none' }} />
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs text-white/60 truncate">{task.task_type}</p>
-                      <p className="text-[10px] text-white/20">{task.created_at ? new Date(task.created_at).toLocaleString() : ''}</p>
+                      <p className="text-xs truncate" style={{ color: 'var(--tc-60)' }}>{task.task_type}</p>
+                      <p className="text-[10px]" style={{ color: 'var(--tc-20)' }}>{task.created_at ? new Date(task.created_at).toLocaleString() : ''}</p>
                     </div>
                     <span className="text-[9px] font-medium px-2 py-0.5 rounded-lg"
-                      style={exec ? { background:`${B}20`, color:B } : done ? { background:`${B}10`, color:`${B}80` } : { background:'rgba(255,255,255,0.05)', color:'rgba(255,255,255,0.3)' }}>
+                      style={exec ? { background:`${B}20`, color:B } : done ? { background:`${B}10`, color:`${B}80` } : { background:'var(--s-input)', color:'var(--tc-30)' }}>
                       {task.status}
                     </span>
                   </div>
