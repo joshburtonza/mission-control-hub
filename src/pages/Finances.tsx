@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { TrendingUp, Clock, CheckCircle2, AlertCircle } from 'lucide-react';
+import { TrendingUp, Clock, CheckCircle2, AlertCircle, Home, Plus, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface IncomeEntry {
@@ -13,6 +13,15 @@ interface IncomeEntry {
   month: string;
 }
 
+interface DebtEntry {
+  id: string;
+  name: string;
+  total_amount: number;
+  remaining_amount: number;
+  monthly_payment: number;
+  notes: string | null;
+}
+
 const statusConfig: Record<string, { label: string; color: string; dot: string }> = {
   paid:          { label: 'Paid',           color: 'text-success',     dot: 'bg-success' },
   invoice_sent:  { label: 'Invoice Sent',   color: 'text-warning',     dot: 'bg-warning' },
@@ -21,8 +30,8 @@ const statusConfig: Record<string, { label: string; color: string; dot: string }
 
 const clientColors: Record<string, string> = {
   'Ascend LC':         'bg-primary/20 text-primary',
-  'Race Technik':      'bg-blue-500/20 text-blue-400',
-  'Favorite Logistics':'bg-purple-500/20 text-purple-400',
+  'Race Technik':      'bg-cyan-500/20 text-cyan-400',
+  'Favorite Logistics':'bg-violet-500/20 text-violet-400',
 };
 
 function fmt(n: number) {
@@ -31,7 +40,10 @@ function fmt(n: number) {
 
 export default function Finances() {
   const [entries, setEntries] = useState<IncomeEntry[]>([]);
+  const [debt, setDebt] = useState<DebtEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showAddDebt, setShowAddDebt] = useState(false);
+  const [newDebt, setNewDebt] = useState({ name: '', total_amount: '', remaining_amount: '', monthly_payment: '', notes: '' });
 
   useEffect(() => {
     fetchData();
@@ -43,12 +55,29 @@ export default function Finances() {
   }, []);
 
   const fetchData = async () => {
-    const { data } = await supabase
-      .from('income_entries')
-      .select('*')
-      .order('month', { ascending: false });
-    if (data) setEntries(data as IncomeEntry[]);
+    const [incomeRes, debtRes] = await Promise.all([
+      supabase.from('income_entries').select('*').order('month', { ascending: false }),
+      supabase.from('debt_entries').select('*').order('created_at', { ascending: false }),
+    ]);
+    if (incomeRes.data) setEntries(incomeRes.data as IncomeEntry[]);
+    if (debtRes.data) setDebt(debtRes.data as DebtEntry[]);
     setLoading(false);
+  };
+
+  const handleAddDebt = async () => {
+    if (!newDebt.name || !newDebt.total_amount) return;
+    const { data } = await supabase.from('debt_entries').insert({
+      name: newDebt.name,
+      total_amount: parseFloat(newDebt.total_amount),
+      remaining_amount: parseFloat(newDebt.remaining_amount || newDebt.total_amount),
+      monthly_payment: parseFloat(newDebt.monthly_payment || '0'),
+      notes: newDebt.notes || null,
+    }).select().single();
+    if (data) {
+      setDebt(prev => [data as DebtEntry, ...prev]);
+      setShowAddDebt(false);
+      setNewDebt({ name: '', total_amount: '', remaining_amount: '', monthly_payment: '', notes: '' });
+    }
   };
 
   const now = new Date();
@@ -81,12 +110,13 @@ export default function Finances() {
   return (
     <div className="space-y-6">
       {/* Stats row */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         {[
           { label: 'Collected',       value: fmt(collected),   icon: <CheckCircle2 className="h-4 w-4" />, color: 'text-success',     border: 'border-success/20' },
           { label: 'Outstanding',     value: fmt(outstanding), icon: <Clock className="h-4 w-4" />,        color: 'text-warning',     border: 'border-warning/20' },
           { label: 'Total Invoiced',  value: fmt(total),       icon: <TrendingUp className="h-4 w-4" />,   color: 'text-primary',     border: 'border-primary/20' },
           { label: 'Collection Rate', value: `${collectionRate}%`, icon: <AlertCircle className="h-4 w-4" />, color: collectionRate === 100 ? 'text-success' : 'text-warning', border: 'border-border/20' },
+          { label: 'Est. Take-Home',  value: '~R56k',          icon: <Home className="h-4 w-4" />,         color: 'text-primary',     border: 'border-primary/20' },
         ].map(s => (
           <div key={s.label} className={cn('rounded-2xl bg-card p-5 border', s.border)}>
             <div className={cn('mb-3', s.color)}>{s.icon}</div>
@@ -193,6 +223,69 @@ export default function Finances() {
           </div>
         </div>
       )}
+
+      {/* Debt tracker */}
+      <div>
+        <div className="flex items-center justify-between mb-3">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Debt Tracker</p>
+          <button onClick={() => setShowAddDebt(true)} className="flex items-center gap-1 text-xs text-primary hover:text-primary/80 font-medium">
+            <Plus className="h-3.5 w-3.5" /> Add
+          </button>
+        </div>
+
+        {showAddDebt && (
+          <div className="rounded-2xl bg-card border border-destructive/30 p-4 mb-3 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium">New Debt Entry</span>
+              <button onClick={() => setShowAddDebt(false)} className="text-muted-foreground hover:text-foreground"><X className="h-4 w-4" /></button>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <input placeholder="Name" value={newDebt.name} onChange={e => setNewDebt(p => ({ ...p, name: e.target.value }))}
+                className="col-span-2 rounded-lg bg-muted border border-border text-foreground text-xs px-2 py-1.5" />
+              <input placeholder="Total amount" type="number" value={newDebt.total_amount} onChange={e => setNewDebt(p => ({ ...p, total_amount: e.target.value }))}
+                className="rounded-lg bg-muted border border-border text-foreground text-xs px-2 py-1.5" />
+              <input placeholder="Remaining" type="number" value={newDebt.remaining_amount} onChange={e => setNewDebt(p => ({ ...p, remaining_amount: e.target.value }))}
+                className="rounded-lg bg-muted border border-border text-foreground text-xs px-2 py-1.5" />
+              <input placeholder="Monthly payment" type="number" value={newDebt.monthly_payment} onChange={e => setNewDebt(p => ({ ...p, monthly_payment: e.target.value }))}
+                className="rounded-lg bg-muted border border-border text-foreground text-xs px-2 py-1.5" />
+              <input placeholder="Notes (optional)" value={newDebt.notes} onChange={e => setNewDebt(p => ({ ...p, notes: e.target.value }))}
+                className="rounded-lg bg-muted border border-border text-foreground text-xs px-2 py-1.5" />
+            </div>
+            <button onClick={handleAddDebt}
+              className="w-full rounded-xl bg-destructive text-destructive-foreground text-xs font-semibold py-2 hover:bg-destructive/90 transition-colors">
+              Save Debt Entry
+            </button>
+          </div>
+        )}
+
+        {debt.length === 0 ? (
+          <div className="rounded-2xl bg-card px-4 py-8 text-center text-sm text-muted-foreground">
+            No debt entries — click Add to track liabilities
+          </div>
+        ) : (
+          <div className="rounded-2xl bg-card divide-y divide-white/5">
+            {debt.map(d => {
+              const pct = Math.max(0, Math.min(100, d.total_amount > 0 ? ((d.total_amount - d.remaining_amount) / d.total_amount) * 100 : 0));
+              return (
+                <div key={d.id} className="px-5 py-4 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-card-foreground">{d.name}</span>
+                    <span className="text-xs text-muted-foreground">{fmt(d.monthly_payment)}/mo</span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-muted-foreground">{fmt(d.remaining_amount)} remaining of {fmt(d.total_amount)}</span>
+                    <span className="text-muted-foreground">{Math.round(pct)}% paid</span>
+                  </div>
+                  <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                    <div className="h-full bg-primary rounded-full" style={{ width: `${pct}%` }} />
+                  </div>
+                  {d.notes && <p className="text-xs text-muted-foreground">{d.notes}</p>}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
