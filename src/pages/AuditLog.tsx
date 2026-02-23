@@ -1,93 +1,62 @@
-import React, { useState, useEffect } from 'react';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import {
-  ClipboardList, CheckCircle2, XCircle, Clock, Search, ChevronDown, ChevronUp, RefreshCw,
-} from 'lucide-react';
+import { Search, ChevronDown, ChevronUp, RefreshCw, CheckCircle2, XCircle, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface AuditEntry {
-  id: string;
-  agent: string | null;
-  action: string | null;
-  details: any;
-  status: string | null;
-  executed_at: string | null;
-  duration_ms?: number | null;
-  error_message?: string | null;
+  id: string; agent: string | null; action: string | null; details: any;
+  status: string | null; executed_at: string | null; duration_ms?: number | null; error_message?: string | null;
 }
 
-const statusConfig: Record<string, { color: string; icon: React.ReactNode }> = {
-  success: { color: 'bg-success/20 text-success border-success/30', icon: <CheckCircle2 className="h-3 w-3" /> },
-  failure: { color: 'bg-destructive/20 text-destructive border-destructive/30', icon: <XCircle className="h-3 w-3" /> },
-  pending: { color: 'bg-warning/20 text-warning border-warning/30', icon: <Clock className="h-3 w-3" /> },
-};
+const B = '#4B9EFF';
+const card = { background: '#0d0d0d', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '20px' } as React.CSSProperties;
 
 const actionLabels: Record<string, string> = {
-  email_approved:         'Email Approved',
-  email_rejected:         'Email Rejected',
-  kill_switch_activated:  'Kill Switch — STOP',
-  kill_switch_deactivated:'Kill Switch — Resume',
-  agent_status_changed:   'Agent Status Changed',
-  email_sent:             'Email Sent',
-  email_analyzed:         'Email Analyzed',
+  email_approved: 'Email Approved', email_rejected: 'Email Rejected',
+  kill_switch_activated: 'Kill Switch — STOP', kill_switch_deactivated: 'Kill Switch — Resume',
+  agent_status_changed: 'Agent Status Changed', email_sent: 'Email Sent', email_analyzed: 'Email Analyzed',
 };
 
 export default function AuditLog() {
-  const [entries, setEntries] = useState<AuditEntry[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState('');
+  const [entries, setEntries]     = useState<AuditEntry[]>([]);
+  const [loading, setLoading]     = useState(true);
+  const [filter, setFilter]       = useState('');
   const [agentFilter, setAgentFilter] = useState<string | null>(null);
-  const [expanded, setExpanded] = useState<string | null>(null);
-  const [page, setPage] = useState(0);
-  const PAGE_SIZE = 50;
+  const [expanded, setExpanded]   = useState<string | null>(null);
+  const [page, setPage]           = useState(0);
+  const PAGE = 50;
 
   useEffect(() => {
     fetchLog();
-    const channel = supabase
-      .channel('audit_log_live')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'audit_log' }, fetchLog)
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    const ch = supabase.channel('audit_live2').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'audit_log' }, fetchLog).subscribe();
+    return () => { supabase.removeChannel(ch); };
   }, [page]);
 
   const fetchLog = async () => {
-    const { data, error } = await supabase
-      .from('audit_log')
-      .select('*')
-      .order('executed_at', { ascending: false })
-      .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
-    if (!error) setEntries(data || []);
+    const { data } = await supabase.from('audit_log').select('*').order('executed_at', { ascending: false }).range(page*PAGE, (page+1)*PAGE-1);
+    if (data) setEntries(data);
     setLoading(false);
   };
 
-  const agents = Array.from(new Set(entries.map(e => e.agent).filter(Boolean))) as string[];
-
+  const agents = [...new Set(entries.map(e => e.agent).filter(Boolean))] as string[];
   const filtered = entries.filter(e => {
-    const matchText = filter === '' || [e.agent, e.action, e.status].some(
-      f => f?.toLowerCase().includes(filter.toLowerCase())
-    );
-    const matchAgent = agentFilter === null || e.agent === agentFilter;
-    return matchText && matchAgent;
+    const t = filter === '' || [e.agent, e.action, e.status].some(f => f?.toLowerCase().includes(filter.toLowerCase()));
+    const a = !agentFilter || e.agent === agentFilter;
+    return t && a;
   });
 
-  const successCount = entries.filter(e => e.status === 'success').length;
-  const failureCount = entries.filter(e => e.status === 'failure').length;
-
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* Stats */}
       <div className="grid grid-cols-3 gap-3">
         {[
-          { label: 'Total', value: entries.length, color: 'text-card-foreground' },
-          { label: 'Success', value: successCount, color: 'text-success' },
-          { label: 'Failed', value: failureCount, color: 'text-destructive' },
+          { label: 'Total',   value: entries.length },
+          { label: 'Success', value: entries.filter(e => e.status==='success').length, active: true },
+          { label: 'Failed',  value: entries.filter(e => e.status==='failure').length },
         ].map(s => (
-          <div key={s.label} className="rounded-xl bg-card px-4 py-3">
-            <p className="text-[10px] text-card-foreground/40 uppercase tracking-wider">{s.label}</p>
-            <p className={cn('text-2xl font-bold', s.color)}>{s.value}</p>
+          <div key={s.label} style={card} className="p-5">
+            <p className="text-[10px] text-white/25 uppercase tracking-widest mb-2">{s.label}</p>
+            <p className="text-3xl font-bold tabular-nums" style={{ color: (s as any).active ? B : 'rgba(255,255,255,0.5)' }}>{s.value}</p>
           </div>
         ))}
       </div>
@@ -95,120 +64,71 @@ export default function AuditLog() {
       {/* Filters */}
       <div className="flex flex-wrap gap-2 items-center">
         <div className="relative flex-1 min-w-0 sm:min-w-48 max-w-xs">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-          <Input
-            value={filter}
-            onChange={e => setFilter(e.target.value)}
-            placeholder="Filter by agent, action, status..."
-            className="pl-9 h-9 rounded-xl bg-secondary border-0 text-sm placeholder:text-muted-foreground/50"
-          />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3 w-3 text-white/25" />
+          <input value={filter} onChange={e => setFilter(e.target.value)} placeholder="Filter…"
+            className="w-full pl-8 pr-3 py-2 rounded-xl text-xs text-white placeholder:text-white/20 focus:outline-none"
+            style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }} />
         </div>
         <div className="flex gap-1.5 flex-wrap">
-          <button
-            onClick={() => setAgentFilter(null)}
-            className={cn(
-              'h-8 px-3 rounded-lg text-xs font-medium transition-colors',
-              agentFilter === null
-                ? 'bg-card text-card-foreground'
-                : 'bg-secondary text-muted-foreground hover:text-foreground'
-            )}
-          >
-            All
-          </button>
-          {agents.map(agent => (
-            <button
-              key={agent}
-              onClick={() => setAgentFilter(agentFilter === agent ? null : agent)}
-              className={cn(
-                'h-8 px-3 rounded-lg text-xs font-medium transition-colors',
-                agentFilter === agent
-                  ? 'bg-card text-card-foreground'
-                  : 'bg-secondary text-muted-foreground hover:text-foreground'
-              )}
-            >
-              {agent}
+          {[{ label: 'All', val: null }, ...agents.map(a => ({ label: a.split(' ')[0], val: a }))].map(({ label, val }) => (
+            <button key={label} onClick={() => setAgentFilter(val)}
+              className="h-8 px-3 rounded-lg text-xs font-medium transition-colors"
+              style={agentFilter === val
+                ? { background: `${B}20`, color: B, border: `1px solid ${B}30` }
+                : { background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.35)', border: '1px solid rgba(255,255,255,0.06)' }}>
+              {label}
             </button>
           ))}
         </div>
-        <button
-          onClick={fetchLog}
-          className="h-8 w-8 rounded-lg bg-secondary text-muted-foreground hover:text-foreground flex items-center justify-center ml-auto transition-colors"
-        >
+        <button onClick={fetchLog} className="h-8 w-8 rounded-lg flex items-center justify-center text-white/25 hover:text-white/50 transition-colors ml-auto"
+          style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}>
           <RefreshCw className="h-3.5 w-3.5" />
         </button>
       </div>
 
-      {/* Log entries */}
-      <div className="rounded-2xl bg-card p-5">
-        <div className="flex items-center gap-2 mb-4">
-          <ClipboardList className="h-4 w-4 text-primary" />
-          <h3 className="text-sm font-semibold text-card-foreground">
-            Audit Trail — {filtered.length} entries
-          </h3>
+      {/* Log */}
+      <div style={card} className="overflow-hidden">
+        <div className="px-5 py-4 border-b border-white/5">
+          <p className="text-xs font-semibold text-white/60">Audit Trail — {filtered.length} entries</p>
         </div>
-
         {loading ? (
-          <p className="text-xs text-card-foreground/40 animate-pulse py-8 text-center">
-            Loading audit log...
-          </p>
+          <div className="flex justify-center py-12">
+            <div className="h-5 w-5 rounded-full border-2 animate-spin" style={{ borderColor: B, borderTopColor: 'transparent' }} />
+          </div>
         ) : filtered.length === 0 ? (
-          <p className="text-xs text-card-foreground/40 py-8 text-center">
-            No entries match your filters
-          </p>
+          <p className="text-xs text-white/20 py-10 text-center">No entries match</p>
         ) : (
-          <div className="space-y-1 max-h-[500px] overflow-auto dark-scrollbar">
+          <div className="divide-y divide-white/[0.04] max-h-[500px] overflow-auto">
             {filtered.map(entry => {
-              const sc = statusConfig[entry.status || 'pending'];
-              const isExpanded = expanded === entry.id;
+              const isSuccess = entry.status === 'success';
+              const isOpen = expanded === entry.id;
               return (
-                <div
-                  key={entry.id}
-                  className="rounded-xl overflow-hidden"
-                >
-                  <div
-                    className="flex items-center gap-3 p-3 cursor-pointer hover:bg-white/5 transition-colors"
-                    onClick={() => setExpanded(isExpanded ? null : entry.id)}
-                  >
-                    <span className="text-[10px] text-card-foreground/30 tabular-nums shrink-0 hidden sm:inline w-28">
+                <div key={entry.id}>
+                  <div className="flex items-center gap-3 px-5 py-3 cursor-pointer hover:bg-white/[0.02] transition-colors"
+                    onClick={() => setExpanded(isOpen ? null : entry.id)}>
+                    <div className="h-1.5 w-1.5 rounded-full shrink-0"
+                      style={{ background: isSuccess ? B : 'rgba(255,255,255,0.15)', boxShadow: isSuccess ? `0 0 4px ${B}` : 'none' }} />
+                    <span className="text-[10px] text-white/20 tabular-nums hidden sm:inline w-32 shrink-0">
                       {entry.executed_at ? new Date(entry.executed_at).toLocaleString() : '—'}
                     </span>
-                    <span className="text-[10px] text-primary shrink-0 w-20 sm:w-24 truncate font-medium">
-                      [{entry.agent || '?'}]
+                    <span className="text-[10px] font-medium shrink-0 w-20 truncate" style={{ color: `${B}cc` }}>
+                      {entry.agent?.split(' ')[0] || '?'}
                     </span>
-                    <span className="text-xs text-card-foreground/60 flex-1 truncate">
+                    <span className="text-xs text-white/50 flex-1 truncate">
                       {actionLabels[entry.action || ''] || entry.action}
                     </span>
-                    {sc && (
-                      <Badge className={cn('text-[9px] border flex items-center gap-1 shrink-0 rounded-lg', sc.color)}>
-                        {sc.icon}
-                        {entry.status}
-                      </Badge>
-                    )}
-                    <span className="text-card-foreground/30 shrink-0">
-                      {isExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                    <span className="text-white/20 shrink-0">
+                      {isOpen ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
                     </span>
                   </div>
-                  {isExpanded && (
-                    <div className="px-4 pb-3 bg-white/5 space-y-2">
-                      {entry.error_message && (
-                        <div className="mt-2">
-                          <p className="text-[9px] text-card-foreground/30 uppercase tracking-wider">Error</p>
-                          <p className="text-[10px] text-destructive mt-0.5">{entry.error_message}</p>
-                        </div>
-                      )}
-                      {entry.duration_ms != null && (
-                        <div className="mt-2">
-                          <p className="text-[9px] text-card-foreground/30 uppercase tracking-wider">Duration</p>
-                          <p className="text-[10px] text-card-foreground/60 mt-0.5">{entry.duration_ms}ms</p>
-                        </div>
-                      )}
+                  {isOpen && (
+                    <div className="px-5 pb-3 pt-1 space-y-2" style={{ background: 'rgba(255,255,255,0.02)' }}>
+                      {entry.error_message && <p className="text-[11px] text-white/40">{entry.error_message}</p>}
+                      {entry.duration_ms != null && <p className="text-[10px] text-white/25">{entry.duration_ms}ms</p>}
                       {entry.details && (
-                        <div className="mt-2">
-                          <p className="text-[9px] text-card-foreground/30 uppercase tracking-wider">Details</p>
-                          <pre className="text-[9px] text-primary/80 bg-white/5 p-2 rounded-lg mt-0.5 max-h-24 overflow-auto dark-scrollbar">
-                            {JSON.stringify(entry.details, null, 2)}
-                          </pre>
-                        </div>
+                        <pre className="text-[9px] text-white/40 rounded-lg p-2 max-h-24 overflow-auto" style={{ background: 'rgba(255,255,255,0.03)' }}>
+                          {JSON.stringify(entry.details, null, 2)}
+                        </pre>
                       )}
                     </div>
                   )}
@@ -217,24 +137,14 @@ export default function AuditLog() {
             })}
           </div>
         )}
-
-        {/* Pagination */}
-        <div className="flex items-center justify-between mt-4 pt-4 border-t border-white/5">
-          <button
-            onClick={() => setPage(p => Math.max(0, p - 1))}
-            disabled={page === 0}
-            className="h-8 px-3 rounded-lg text-xs font-medium bg-white/5 text-card-foreground/50 hover:text-card-foreground disabled:opacity-30 transition-colors"
-          >
-            Previous
-          </button>
-          <span className="text-xs text-card-foreground/30">Page {page + 1}</span>
-          <button
-            onClick={() => setPage(p => p + 1)}
-            disabled={entries.length < PAGE_SIZE}
-            className="h-8 px-3 rounded-lg text-xs font-medium bg-white/5 text-card-foreground/50 hover:text-card-foreground disabled:opacity-30 transition-colors"
-          >
-            Next
-          </button>
+        <div className="flex items-center justify-between px-5 py-3 border-t border-white/5">
+          <button onClick={() => setPage(p => Math.max(0, p-1))} disabled={page===0}
+            className="h-8 px-3 rounded-lg text-xs text-white/30 hover:text-white/60 disabled:opacity-20 transition-colors"
+            style={{ background: 'rgba(255,255,255,0.04)' }}>Previous</button>
+          <span className="text-[10px] text-white/20">Page {page+1}</span>
+          <button onClick={() => setPage(p => p+1)} disabled={entries.length<PAGE}
+            className="h-8 px-3 rounded-lg text-xs text-white/30 hover:text-white/60 disabled:opacity-20 transition-colors"
+            style={{ background: 'rgba(255,255,255,0.04)' }}>Next</button>
         </div>
       </div>
     </div>

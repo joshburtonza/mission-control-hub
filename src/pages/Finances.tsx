@@ -1,9 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import {
-  AreaChart, Area, LineChart, Line, BarChart, Bar,
+  AreaChart, Area, BarChart, Bar,
   XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
-  ReferenceLine,
 } from 'recharts';
 import { TrendingUp, TrendingDown, Plus, X, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -181,6 +180,7 @@ export default function Finances() {
     });
     return row;
   });
+  const chartData = lineData;
 
   // Bar data
   const barData = months.map(m => ({
@@ -248,46 +248,45 @@ export default function Finances() {
 
           {/* Chart with dot-grid background */}
           <div className="rounded-xl overflow-hidden" style={dotGrid}>
-            {lineData.length < 2 ? (
+            {chartData.length === 0 ? (
               <div className="h-52 flex items-center justify-center text-sm text-white/20">
-                Need at least 2 months of data
+                No data yet
               </div>
             ) : (
               <ResponsiveContainer width="100%" height={210}>
-                <LineChart data={lineData} margin={{ top: 16, right: 60, left: -28, bottom: 0 }}>
+                <AreaChart data={chartData} margin={{ top: 16, right: 16, left: -28, bottom: 0 }}>
                   <defs>
-                    {clients.map((_, i) => (
-                      <filter key={i} id={`lg${i}`}>
-                        <feDropShadow dx="0" dy="0" stdDeviation="4"
-                          floodColor={lineColors[i]} floodOpacity="0.9" />
-                      </filter>
-                    ))}
+                    <linearGradient id="lg0" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#4B9EFF" stopOpacity={0.35} />
+                      <stop offset="100%" stopColor="#4B9EFF" stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="lg1" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#4B9EFF" stopOpacity={0.15} />
+                      <stop offset="100%" stopColor="#4B9EFF" stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="lg2" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#4B9EFF" stopOpacity={0.08} />
+                      <stop offset="100%" stopColor="#4B9EFF" stopOpacity={0} />
+                    </linearGradient>
                   </defs>
                   <CartesianGrid stroke="rgba(255,255,255,0.03)" vertical={false} />
-                  <XAxis dataKey="month"
-                    tick={{ fontSize: 10, fill: 'rgba(255,255,255,0.2)' }}
-                    axisLine={false} tickLine={false} />
+                  <XAxis dataKey="month" tick={{ fontSize: 10, fill: 'rgba(255,255,255,0.2)' }} axisLine={false} tickLine={false} />
                   <YAxis hide />
-                  <Tooltip content={<Tip />}
-                    cursor={{ stroke:'rgba(75,158,255,0.15)', strokeWidth:1, strokeDasharray:'4 4' }} />
+                  <Tooltip content={<Tip />} cursor={{ stroke: 'rgba(75,158,255,0.15)', strokeWidth: 1, strokeDasharray: '4 4' }} />
                   {clients.map((c, i) => {
                     const key = c.split(' ')[0];
-                    const color = lineColors[i];
+                    const colors = ['#4B9EFF', '#4B9EFFaa', '#4B9EFF55'];
                     return (
-                      <Line key={c} type="monotone" dataKey={key}
-                        stroke={color} strokeWidth={i === 0 ? 2.5 : 1.8}
-                        dot={(props: any) => {
-                          const isLast = props.index === lineData.length - 1;
-                          return <EndDot key={props.index} {...props} isLast={isLast} color={color} />;
-                        }}
-                        activeDot={{ r: 4, fill: color, strokeWidth: 0,
-                          style: { filter:`drop-shadow(0 0 6px ${color})` } }}
+                      <Area key={c} type="monotone" dataKey={key}
+                        stroke={colors[i]} strokeWidth={i === 0 ? 2.5 : 1.5}
+                        fill={`url(#lg${i})`}
+                        dot={false}
+                        activeDot={{ r: 4, fill: colors[i], strokeWidth: 0 }}
                         animationDuration={1200 + i * 200} animationEasing="ease-out"
-                        style={{ filter: `url(#lg${i})` }}
                       />
                     );
                   })}
-                </LineChart>
+                </AreaChart>
               </ResponsiveContainer>
             )}
           </div>
