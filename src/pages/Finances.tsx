@@ -16,7 +16,7 @@ interface IncomeEntry {
 interface DebtEntry {
   id: string; name: string; total_amount: number;
   remaining_amount: number; monthly_payment: number;
-  interest_rate: number; notes: string | null;
+  interest_rate?: number; notes: string | null;
 }
 interface Subscription {
   id: string; name: string; category: string; amount: number;
@@ -237,11 +237,13 @@ export default function Finances() {
 
   // Debt summary
   const totalDebtMinimums    = debt.reduce((s, d) => s + d.monthly_payment, 0);
-  const totalMonthlyInterest = debt.reduce((s, d) => s + d.remaining_amount * ((d.interest_rate || 0) / 12 / 100), 0);
+  // Default to 22% SA credit card rate if column not yet in DB
+  const totalMonthlyInterest = debt.reduce((s, d) => s + d.remaining_amount * ((d.interest_rate ?? 22) / 12 / 100), 0);
 
   // Net position
   const mrr          = total;
-  const totalOutflow = totalSubsMonthly + totalDebtMinimums;
+  const joshDraw     = 36000; // Josh's draw ~R33-40k, using midpoint
+  const totalOutflow = totalSubsMonthly + totalDebtMinimums + joshDraw;
   const netSurplus   = mrr - totalOutflow;
 
   // Avalanche sort — highest interest rate first
@@ -531,32 +533,33 @@ export default function Finances() {
           <p className="text-[10px] uppercase tracking-widest mb-4" style={{ color: txt.label }}>Net Position</p>
           <div className="space-y-0">
             {[
-              { label: 'MRR',          value: mrr,          minus: false, highlight: false },
-              { label: 'Total Outflow', value: totalOutflow, minus: true,  highlight: false },
-              { label: 'Net Surplus',  value: netSurplus,   minus: false, highlight: true  },
+              { label: 'MRR',           value: mrr,          minus: false, highlight: false },
+              { label: "Josh's Draw",   value: joshDraw,     minus: true,  highlight: false },
+              { label: 'Subscriptions', value: totalSubsMonthly, minus: true, highlight: false },
+              { label: 'Debt Minimums', value: totalDebtMinimums, minus: true, highlight: false },
+              { label: 'Net Surplus',   value: netSurplus,   minus: false, highlight: true  },
             ].map((row, i) => (
               <div key={row.label}
-                className="flex justify-between items-center py-2.5"
+                className="flex justify-between items-center py-2"
                 style={{ borderTop: i > 0 ? `1px solid ${txt.divider}` : undefined }}>
                 <span className="text-[12px]"
                   style={{ color: row.highlight ? (netSurplus >= 0 ? '#4ADE80' : '#F87171') : txt.sub }}>
                   {row.label}
                 </span>
-                <span className="text-[15px] font-bold tabular-nums"
-                  style={{ color: row.highlight ? (netSurplus >= 0 ? '#4ADE80' : '#F87171') : txt.head }}>
+                <span className={row.highlight ? 'text-[17px]' : 'text-[13px]'} style={{
+                  fontWeight: row.highlight ? 700 : 600,
+                  color: row.highlight ? (netSurplus >= 0 ? '#4ADE80' : '#F87171') : row.minus ? '#F87171cc' : txt.head,
+                  fontVariantNumeric: 'tabular-nums',
+                }}>
                   {row.minus ? '-' : ''}{fmtFull(Math.abs(row.value))}
                 </span>
               </div>
             ))}
           </div>
-          <div className="mt-3 pt-3 space-y-1.5" style={{ borderTop: `1px solid ${txt.divider}` }}>
+          <div className="mt-3 pt-3" style={{ borderTop: `1px solid ${txt.divider}` }}>
             <div className="flex justify-between text-[10px]" style={{ color: txt.muted }}>
-              <span>Subscriptions</span>
-              <span>{fmtFull(totalSubsMonthly)}/mo</span>
-            </div>
-            <div className="flex justify-between text-[10px]" style={{ color: txt.muted }}>
-              <span>Debt minimums</span>
-              <span>{fmtFull(totalDebtMinimums)}/mo</span>
+              <span>Interest burning/mo (22%)</span>
+              <span style={{ color: '#F87171' }}>{fmtFull(Math.round(totalMonthlyInterest))}</span>
             </div>
           </div>
         </div>
@@ -712,9 +715,10 @@ export default function Finances() {
           ) : (
             <div className="overflow-y-auto" style={{ maxHeight: '520px' }}>
               {sortedDebt.map((d, idx) => {
+                const rate    = d.interest_rate ?? 22;
                 const pct     = d.total_amount > 0 ? Math.max(0, Math.min(100, ((d.total_amount - d.remaining_amount) / d.total_amount) * 100)) : 0;
-                const mths    = calcMonths(d.remaining_amount, d.monthly_payment, d.interest_rate || 0);
-                const intCost = Math.round(d.remaining_amount * ((d.interest_rate || 0) / 12 / 100));
+                const mths    = calcMonths(d.remaining_amount, d.monthly_payment, rate);
+                const intCost = Math.round(d.remaining_amount * (rate / 12 / 100));
                 const isTop   = idx === 0 && sortedDebt.length > 1;
                 return (
                   <div key={d.id} className="px-5 py-4 space-y-2"
@@ -731,7 +735,7 @@ export default function Finances() {
                       </div>
                       <div className="text-right shrink-0">
                         <p className="text-[11px] font-medium" style={{ color: txt.sub }}>{fmtFull(d.monthly_payment)}/mo</p>
-                        <p className="text-[9px]" style={{ color: txt.muted }}>{d.interest_rate}% p.a.</p>
+                        <p className="text-[9px]" style={{ color: txt.muted }}>{d.interest_rate ?? 22}% p.a.</p>
                       </div>
                     </div>
                     <div className="flex justify-between text-[10px]" style={{ color: txt.muted }}>
