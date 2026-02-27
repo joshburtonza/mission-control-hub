@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, Bot, ListTodo, ClipboardList, DollarSign, Calendar,
-  Settings, CheckSquare, FileText, Bell, Users, Brain, Video, MonitorSpeaker,
+  Settings, CheckSquare, FileText, Bell, Users, Brain, Video, MonitorSpeaker, Camera,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { cn } from "@/lib/utils";
@@ -14,6 +14,7 @@ const mainNav = [
   { icon: Users,           url: "/crm",       label: "Alex CRM" },
   { icon: Brain,           url: "/research",  label: "Research" },
   { icon: MonitorSpeaker,  url: "/clients",   label: "Client OS" },
+  { icon: Camera,          url: "/vanta",     label: "Vanta" },
   { icon: DollarSign,      url: "/finances",  label: "Finances" },
   { icon: Calendar,        url: "/calendar",  label: "Calendar" },
   { icon: Bell,            url: "/notifications", label: "Alerts" },

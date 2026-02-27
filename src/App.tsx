@@ -16,6 +16,7 @@ import NotificationsPage from "./pages/NotificationsPage";
 import CRMPage from "./pages/CRMPage";
 import ResearchPage from "./pages/ResearchPage";
 import ClientsPage from "./pages/ClientsPage";
+import VantaPage from "./pages/VantaPage";
 import NotFound from "./pages/NotFound";
 
 const App = () => (
@@ -34,6 +35,7 @@ const App = () => (
             <Route path="/crm" element={<CRMPage />} />
             <Route path="/research" element={<ResearchPage />} />
             <Route path="/clients" element={<ClientsPage />} />
+            <Route path="/vanta" element={<VantaPage />} />
             <Route path="/audit" element={<AuditLog />} />
             <Route path="/finances" element={<Finances />} />
             <Route path="/calendar" element={<CalendarPage />} />
