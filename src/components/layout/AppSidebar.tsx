@@ -1,24 +1,25 @@
 import {
-  LayoutDashboard, Bot, ListTodo, ClipboardList, DollarSign, Calendar,
-  Settings, CheckSquare, FileText, Bell, Users, Brain, Video, MonitorSpeaker, Camera,
+  LayoutDashboard, ListTodo, DollarSign, Calendar,
+  Settings, FileText, Users, ScrollText, BookOpen,
+  MonitorSpeaker, HeartHandshake, Video,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { cn } from "@/lib/utils";
 
 const mainNav = [
-  { icon: LayoutDashboard, url: "/",          label: "Dashboard",  end: true },
-  { icon: Bot,             url: "/agents",    label: "Agents" },
-  { icon: CheckSquare,     url: "/approvals", label: "Approvals" },
-  { icon: ListTodo,        url: "/tasks",     label: "Tasks" },
-  { icon: FileText,        url: "/content",   label: "Content" },
-  { icon: Users,           url: "/crm",       label: "Alex CRM" },
-  { icon: Brain,           url: "/research",  label: "Research" },
-  { icon: MonitorSpeaker,  url: "/clients",   label: "Client OS" },
-  { icon: Camera,          url: "/vanta",     label: "Vanta" },
-  { icon: DollarSign,      url: "/finances",  label: "Finances" },
-  { icon: Calendar,        url: "/calendar",  label: "Calendar" },
-  { icon: Bell,            url: "/notifications", label: "Alerts" },
-  { icon: ClipboardList,   url: "/audit",     label: "Audit" },
+  { icon: LayoutDashboard, url: "/",         label: "Dashboard", end: true },
+  { icon: Users,           url: "/crm",      label: "CRM" },
+  { icon: HeartHandshake,  url: "/csm",      label: "CSM" },
+  { icon: MonitorSpeaker,  url: "/clients",  label: "Clients" },
+];
+
+const reportsNav = [
+  { icon: DollarSign,  url: "/finances",  label: "Finance" },
+  { icon: FileText,    url: "/content",   label: "Content" },
+  { icon: BookOpen,    url: "/docs",      label: "Docs" },
+  { icon: ScrollText,  url: "/contracts", label: "Contracts" },
+  { icon: ListTodo,    url: "/tasks",     label: "Tasks" },
+  { icon: Calendar,    url: "/calendar",  label: "Calendar" },
 ];
 
 function NavItem({ icon: Icon, url, label, end }: {
@@ -42,11 +43,11 @@ function NavItem({ icon: Icon, url, label, end }: {
 }
 
 const mobileNav = [
-  { icon: LayoutDashboard, url: "/",          label: "Home",     end: true },
-  { icon: CheckSquare,     url: "/approvals", label: "Approvals" },
-  { icon: ListTodo,        url: "/tasks",     label: "Tasks" },
-  { icon: Video,           url: "/content",   label: "Content" },
-  { icon: DollarSign,      url: "/finances",  label: "Money" },
+  { icon: LayoutDashboard, url: "/",         label: "Home",     end: true },
+  { icon: Users,           url: "/crm",      label: "CRM" },
+  { icon: HeartHandshake,  url: "/csm",      label: "CSM" },
+  { icon: DollarSign,      url: "/finances", label: "Finance" },
+  { icon: Video,           url: "/content",  label: "Content" },
 ];
 
 export function AppSidebar() {
@@ -70,11 +71,11 @@ export function AppSidebar() {
         {/* Main nav */}
         <nav className="flex flex-col gap-0.5 flex-1">
           <p className="text-[9px] font-semibold text-muted-foreground uppercase tracking-widest px-3 mb-1">Main</p>
-          {mainNav.slice(0, 4).map((item) => (
+          {mainNav.map((item) => (
             <NavItem key={item.url} {...item} />
           ))}
-          <p className="text-[9px] font-semibold text-muted-foreground uppercase tracking-widest px-3 mt-4 mb-1">Reports</p>
-          {mainNav.slice(4).map((item) => (
+          <p className="text-[9px] font-semibold text-muted-foreground uppercase tracking-widest px-3 mt-4 mb-1">Work</p>
+          {reportsNav.map((item) => (
             <NavItem key={item.url} {...item} />
           ))}
         </nav>

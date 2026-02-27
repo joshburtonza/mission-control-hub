@@ -1,28 +1,38 @@
 import { useState, useEffect } from "react";
-import { Wifi, WifiOff, Sun, Moon } from "lucide-react";
-import { useLocation } from "react-router-dom";
+import { Wifi, WifiOff, Sun, Moon, Bell } from "lucide-react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useTheme } from "next-themes";
+import { supabase } from "@/integrations/supabase/client";
 
 const pageTitles: Record<string, { title: string; subtitle: string }> = {
-  "/":              { title: "Mission Control",  subtitle: "System overview" },
-  "/agents":        { title: "Agents",           subtitle: "Real-time status & management" },
-  "/approvals":     { title: "Approvals",        subtitle: "Email escalation queue" },
-  "/tasks":         { title: "Task Board",       subtitle: "Queue tasks for Claude" },
-  "/content":       { title: "Content",          subtitle: "Scripts & outreach pipeline" },
-  "/audit":         { title: "Audit Log",        subtitle: "Decision & action history" },
-  "/finances":      { title: "Finances",         subtitle: "Revenue & debt tracking" },
-  "/calendar":      { title: "Calendar",         subtitle: "Schedule & reminders" },
-  "/notifications": { title: "Notifications",    subtitle: "Alerts & escalations" },
-  "/settings":      { title: "Settings",         subtitle: "System configuration" },
-  "/status":        { title: "System Status",    subtitle: "Health & cron jobs" },
+  "/":           { title: "Mission Control",  subtitle: "System overview" },
+  "/crm":        { title: "CRM",              subtitle: "Leads, pipeline & contacts" },
+  "/csm":        { title: "CSM",              subtitle: "Client success & Sophia queue" },
+  "/clients":    { title: "Client OS",        subtitle: "Active client systems" },
+  "/finances":   { title: "Finances",         subtitle: "Revenue, debt & cash flow" },
+  "/content":    { title: "Content",          subtitle: "Scripts & outreach pipeline" },
+  "/docs":       { title: "Docs",             subtitle: "SOPs, proposals & reports" },
+  "/contracts":  { title: "Contracts",        subtitle: "Retainers & agreements" },
+  "/tasks":      { title: "Task Board",       subtitle: "Queue tasks for Claude" },
+  "/calendar":   { title: "Calendar",         subtitle: "Schedule & reminders" },
+  "/settings":   { title: "Settings",         subtitle: "System configuration" },
+  "/agents":     { title: "Agents",           subtitle: "Real-time status & management" },
+  "/approvals":  { title: "Approvals",        subtitle: "Email escalation queue" },
+  "/audit":      { title: "Audit Log",        subtitle: "Decision & action history" },
+  "/notifications": { title: "Notifications", subtitle: "Alerts & escalations" },
+  "/status":     { title: "System Status",    subtitle: "Health & cron jobs" },
+  "/research":   { title: "Research",         subtitle: "Intelligence pipeline" },
+  "/vanta":      { title: "Vanta OS",         subtitle: "Lead generation pipeline" },
 };
 
 export function Header() {
   const location  = useLocation();
+  const navigate  = useNavigate();
   const page      = pageTitles[location.pathname] || { title: "Mission Control", subtitle: "" };
-  const [time, setTime]     = useState(new Date());
-  const [online, setOnline] = useState(navigator.onLine);
-  const { theme, setTheme } = useTheme();
+  const [time, setTime]         = useState(new Date());
+  const [online, setOnline]     = useState(navigator.onLine);
+  const [unread, setUnread]     = useState(0);
+  const { theme, setTheme }     = useTheme();
 
   useEffect(() => {
     const timer = setInterval(() => setTime(new Date()), 1000);
@@ -33,6 +43,25 @@ export function Header() {
     return () => { clearInterval(timer); window.removeEventListener("online", on); window.removeEventListener("offline", off); };
   }, []);
 
+  /* ── Notification badge ── */
+  useEffect(() => {
+    fetchUnread();
+    const ch = supabase.channel("header_notif")
+      .on("postgres_changes", { event: "*", schema: "public", table: "notifications" }, fetchUnread)
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, []);
+
+  const fetchUnread = async () => {
+    try {
+      const { count } = await supabase
+        .from("notifications")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "unread");
+      setUnread(count ?? 0);
+    } catch { /* ignore */ }
+  };
+
   return (
     <header className="flex items-center justify-between px-5 md:px-7 pt-5 md:pt-6 pb-3 glass-header sticky top-0 z-40">
       <div>
@@ -41,6 +70,23 @@ export function Header() {
       </div>
 
       <div className="flex items-center gap-3 md:gap-4">
+        {/* Notification bell */}
+        <button
+          onClick={() => navigate("/notifications")}
+          className="relative h-8 w-8 flex items-center justify-center rounded-lg border border-border hover:border-primary/40 hover:bg-primary/10 transition-all text-muted-foreground hover:text-primary"
+          title="Notifications"
+        >
+          <Bell className="h-3.5 w-3.5" />
+          {unread > 0 && (
+            <span
+              className="absolute -top-1 -right-1 min-w-[16px] h-4 px-0.5 flex items-center justify-center rounded-full text-[9px] font-bold text-white leading-none"
+              style={{ background: '#4B9EFF', boxShadow: '0 0 8px rgba(75,158,255,0.7)' }}
+            >
+              {unread > 99 ? '99+' : unread}
+            </span>
+          )}
+        </button>
+
         {/* Theme toggle */}
         <button
           onClick={() => setTheme(theme === "dark" ? "light" : "dark")}

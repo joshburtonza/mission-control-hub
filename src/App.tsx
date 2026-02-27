@@ -17,6 +17,9 @@ import CRMPage from "./pages/CRMPage";
 import ResearchPage from "./pages/ResearchPage";
 import ClientsPage from "./pages/ClientsPage";
 import VantaPage from "./pages/VantaPage";
+import CSMPage from "./pages/CSMPage";
+import DocsPage from "./pages/DocsPage";
+import ContractsPage from "./pages/ContractsPage";
 import NotFound from "./pages/NotFound";
 
 const App = () => (
@@ -26,20 +29,24 @@ const App = () => (
         <DashboardLayout>
           <Routes>
             <Route path="/" element={<Index />} />
+            <Route path="/crm" element={<CRMPage />} />
+            <Route path="/csm" element={<CSMPage />} />
+            <Route path="/clients" element={<ClientsPage />} />
+            <Route path="/finances" element={<Finances />} />
+            <Route path="/content" element={<Content />} />
+            <Route path="/docs" element={<DocsPage />} />
+            <Route path="/contracts" element={<ContractsPage />} />
+            <Route path="/tasks" element={<Tasks />} />
+            <Route path="/calendar" element={<CalendarPage />} />
+            <Route path="/settings" element={<SettingsPage />} />
+            {/* Legacy / utility routes — still accessible by URL */}
             <Route path="/approvals" element={<Approvals />} />
             <Route path="/notifications" element={<NotificationsPage />} />
             <Route path="/status" element={<StatusPage />} />
             <Route path="/agents" element={<Agents />} />
-            <Route path="/tasks" element={<Tasks />} />
-            <Route path="/content" element={<Content />} />
-            <Route path="/crm" element={<CRMPage />} />
             <Route path="/research" element={<ResearchPage />} />
-            <Route path="/clients" element={<ClientsPage />} />
             <Route path="/vanta" element={<VantaPage />} />
             <Route path="/audit" element={<AuditLog />} />
-            <Route path="/finances" element={<Finances />} />
-            <Route path="/calendar" element={<CalendarPage />} />
-            <Route path="/settings" element={<SettingsPage />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </DashboardLayout>
