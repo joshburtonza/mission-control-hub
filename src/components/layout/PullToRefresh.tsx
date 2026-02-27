@@ -69,7 +69,7 @@ export function PullToRefresh({ children, onRefresh }: Props) {
       onTouchStart={onTouchStart}
       onTouchMove={onTouchMove}
       onTouchEnd={onTouchEnd}
-      style={{ overscrollBehavior: 'none', scrollbarGutter: 'stable' }}
+      style={{ overscrollBehavior: 'none' }}
     >
       {/* Pull indicator */}
       <div
