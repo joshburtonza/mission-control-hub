@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Bot, Terminal, X } from 'lucide-react';
+import { Bot, Terminal, X, Power } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
 
 interface Agent { id: string; name: string; role: string; status: string | null; current_task: string | null; last_activity: string | null; }
 interface Task  { id: string; agent: string | null; task_type: string | null; status: string | null; payload: any; created_at: string | null; }
@@ -15,12 +16,21 @@ const agentDesc: Record<string, string> = {
   'System Monitor':'Heartbeat checks every 30 min, repo sync Tuesdays, cron management',
 };
 
+// Maps agent name → system_config key for enable/disable
+const agentConfigKey: Record<string, string> = {
+  'Sophia CSM':    'agent_enabled_sophia',
+  'Alex Outreach': 'agent_enabled_alex',
+  'System Monitor':'agent_enabled_monitor',
+};
+
 export default function Agents() {
   const [agents, setAgents]         = useState<Agent[]>([]);
   const [tasks, setTasks]           = useState<Task[]>([]);
   const [loading, setLoading]       = useState(true);
   const [selected, setSelected]     = useState<Agent | null>(null);
   const [updating, setUpdating]     = useState<string | null>(null);
+  const [agentEnabled, setAgentEnabled] = useState<Record<string, boolean>>({});
+  const [toggling, setToggling]     = useState<string | null>(null);
 
   useEffect(() => {
     fetchData();
@@ -30,13 +40,41 @@ export default function Agents() {
   }, []);
 
   const fetchData = async () => {
-    const [aRes, tRes] = await Promise.all([
+    const [aRes, tRes, cRes] = await Promise.all([
       supabase.from('agents').select('*').order('created_at'),
       supabase.from('task_queue').select('*').order('created_at', { ascending: false }).limit(50),
+      supabase.from('system_config').select('key,value').like('key', 'agent_enabled_%'),
     ]);
     if (!aRes.error) setAgents(aRes.data || []);
     if (!tRes.error) setTasks(tRes.data || []);
+    if (!cRes.error && cRes.data) {
+      const map: Record<string, boolean> = {};
+      for (const row of cRes.data) {
+        try { map[row.key] = JSON.parse(row.value ?? 'true'); }
+        catch { map[row.key] = row.value !== 'false'; }
+      }
+      setAgentEnabled(map);
+    }
     setLoading(false);
+  };
+
+  const toggleAgent = async (agent: Agent, enabled: boolean) => {
+    const configKey = agentConfigKey[agent.name];
+    if (!configKey) return;
+    setToggling(agent.name);
+    try {
+      await supabase.from('system_config').upsert(
+        { key: configKey, value: JSON.stringify(enabled) },
+        { onConflict: 'key' }
+      );
+      setAgentEnabled(prev => ({ ...prev, [configKey]: enabled }));
+      await supabase.from('audit_log').insert({
+        agent: agent.name, action: 'agent_toggled',
+        details: { enabled }, status: 'success'
+      });
+      toast.success(`${agent.name} ${enabled ? 'enabled' : 'disabled'} — applies within 5 min`);
+    } catch { toast.error('Toggle failed'); }
+    finally { setToggling(null); }
   };
 
   const updateStatus = async (agent: Agent, status: string) => {
@@ -79,28 +117,47 @@ export default function Agents() {
             const isOnline = agent.status === 'online';
             const isSelected = selected?.id === agent.id;
             const at = agTasks(agent.name);
+            const configKey = agentConfigKey[agent.name];
+            const isEnabled = configKey ? (agentEnabled[configKey] !== false) : true;
             return (
               <div key={agent.id} onClick={() => setSelected(isSelected ? null : agent)}
                 className="cursor-pointer transition-all p-5"
-                style={{ ...card, borderColor: isSelected ? `${B}40` : 'rgba(255,255,255,0.06)', boxShadow: isSelected ? `0 0 0 1px ${B}20` : 'none' }}>
+                style={{ ...card,
+                  borderColor: isSelected ? `${B}40` : isEnabled ? 'rgba(255,255,255,0.06)' : 'rgba(255,60,60,0.15)',
+                  boxShadow: isSelected ? `0 0 0 1px ${B}20` : 'none',
+                  opacity: isEnabled ? 1 : 0.7,
+                }}>
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex items-center gap-3">
                     <div className="h-10 w-10 rounded-xl flex items-center justify-center"
-                      style={{ background: isOnline ? `${B}15` : 'var(--s-hover)', border: `1px solid ${isOnline ? `${B}30` : 'rgba(255,255,255,0.06)'}` }}>
-                      <Bot className="h-5 w-5" style={{ color: isOnline ? B : 'var(--tc-30)' }} />
+                      style={{ background: isOnline && isEnabled ? `${B}15` : 'var(--s-hover)', border: `1px solid ${isOnline && isEnabled ? `${B}30` : 'rgba(255,255,255,0.06)'}` }}>
+                      <Bot className="h-5 w-5" style={{ color: isOnline && isEnabled ? B : 'var(--tc-30)' }} />
                     </div>
                     <div>
                       <p className="text-sm font-semibold text-white">{agent.name}</p>
                       <p className="text-[11px]" style={{ color: 'var(--tc-30)' }}>{roleLabels[agent.role] || agent.role}</p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-1.5">
-                    <div className="h-1.5 w-1.5 rounded-full"
-                      style={{ background: isOnline ? B : agent.status==='idle' ? 'var(--tc-50)' : 'var(--tc-15)', boxShadow: isOnline ? `0 0 5px ${B}` : 'none' }} />
-                    <span className="text-[10px] uppercase font-medium"
-                      style={{ color: isOnline ? B : agent.status==='idle' ? 'var(--tc-50)' : 'var(--tc-20)' }}>
-                      {agent.status || 'offline'}
-                    </span>
+                  <div className="flex items-center gap-3" onClick={e => e.stopPropagation()}>
+                    {configKey && (
+                      <div className="flex items-center gap-1.5">
+                        <Power className="h-3 w-3" style={{ color: isEnabled ? B : 'var(--tc-20)' }} />
+                        <Switch
+                          checked={isEnabled}
+                          disabled={toggling === agent.name}
+                          onCheckedChange={(v) => toggleAgent(agent, v)}
+                          className="scale-75"
+                        />
+                      </div>
+                    )}
+                    <div className="flex items-center gap-1.5">
+                      <div className="h-1.5 w-1.5 rounded-full"
+                        style={{ background: isOnline ? B : agent.status==='idle' ? 'var(--tc-50)' : 'var(--tc-15)', boxShadow: isOnline ? `0 0 5px ${B}` : 'none' }} />
+                      <span className="text-[10px] uppercase font-medium"
+                        style={{ color: isOnline ? B : agent.status==='idle' ? 'var(--tc-50)' : 'var(--tc-20)' }}>
+                        {isEnabled ? (agent.status || 'offline') : 'disabled'}
+                      </span>
+                    </div>
                   </div>
                 </div>
 

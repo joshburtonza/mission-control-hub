@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, Bot, ListTodo, ClipboardList, DollarSign, Calendar,
-  Settings, CheckSquare, FileText, Bell, Users, Brain, Video,
+  Settings, CheckSquare, FileText, Bell, Users, Brain, Video, MonitorSpeaker,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { cn } from "@/lib/utils";
@@ -13,6 +13,7 @@ const mainNav = [
   { icon: FileText,        url: "/content",   label: "Content" },
   { icon: Users,           url: "/crm",       label: "Alex CRM" },
   { icon: Brain,           url: "/research",  label: "Research" },
+  { icon: MonitorSpeaker,  url: "/clients",   label: "Client OS" },
   { icon: DollarSign,      url: "/finances",  label: "Finances" },
   { icon: Calendar,        url: "/calendar",  label: "Calendar" },
   { icon: Bell,            url: "/notifications", label: "Alerts" },
@@ -58,7 +59,9 @@ export function AppSidebar() {
             <div className="w-0 h-0 border-l-[7px] border-l-white border-t-[4.5px] border-t-transparent border-b-[4.5px] border-b-transparent ml-0.5" />
           </div>
           <div>
-            <p className="text-sm font-bold text-foreground leading-none">Amalfi</p>
+            <p className="text-sm font-bold text-foreground leading-none">
+              {import.meta.env.VITE_COMPANY_NAME || 'Amalfi'}
+            </p>
             <p className="text-[10px] text-muted-foreground leading-none mt-0.5">Mission Control</p>
           </div>
         </div>
