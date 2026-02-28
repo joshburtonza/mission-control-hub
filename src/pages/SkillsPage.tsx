@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import {
   Zap, MessageSquare, Brain, Mail, Calendar, BarChart3,
   Search, Users, FileText, Mic, Globe, Database,
-  TrendingUp, Clock, Bell, Shield, ChevronRight, Bot,
+  TrendingUp, Clock, Bell, Shield, ChevronRight, Bot, Video,
 } from 'lucide-react';
 
 const B = '#4B9EFF';
@@ -178,6 +178,26 @@ const SKILLS: Skill[] = [
   },
 
   // ── Content & Media ─────────────────────────────
+  {
+    id: 'remotion-editor',
+    name: 'Remotion Video Editor',
+    category: 'Content',
+    status: 'beta',
+    icon: Video,
+    color: '#f97316',
+    description: 'Programmatic talking head editor — silence trimming, 3D animated captions, motion graphics, progress bar. Drop .mp4 into Google Drive "Video Queue", auto-renders at 6am/9am/2pm/4pm SAST.',
+    trigger: '06:00, 09:00, 14:00, 16:00 SAST',
+    details: [
+      'ffmpeg silence trimmer (removes pauses >0.5s)',
+      'Deepgram nova-2 word-level timestamps for caption sync',
+      'Remotion 3D captions: spring animations, yellow highlight, depth shadow',
+      'Smart positioning — fills white space below talking head',
+      'Auto-detects 9:16 vertical vs 16:9 horizontal input',
+      'Gradient progress bar at top of frame',
+      'Animated intro title card (2s)',
+      'Google Drive folder watcher — outputs back to Drive',
+    ],
+  },
   {
     id: 'content-engine',
     name: 'Content Engine',
