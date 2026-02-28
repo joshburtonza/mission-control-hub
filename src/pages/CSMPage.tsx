@@ -423,21 +423,13 @@ export default function CSMPage() {
   const [queueTab, setQueueTab]   = useState<'pending' | 'history'>('pending');
   const [selected, setSelected]   = useState<EmailItem | null>(null);
 
-  useEffect(() => {
-    fetchData();
-    const ch = supabase.channel('csm_live')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'email_queue' }, fetchData)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'clients' }, fetchData)
-      .subscribe();
-    return () => { supabase.removeChannel(ch); };
-  }, []);
-
   const fetchData = async () => {
+    const db = supabase as any;
     const [cRes, pRes, hRes, aRes] = await Promise.all([
-      supabase.from('clients').select('*').eq('status', 'active').order('created_at', { ascending: true }),
-      supabase.from('email_queue').select('*').in('status', ['awaiting_approval', 'auto_pending']).order('created_at', { ascending: false }),
-      supabase.from('email_queue').select('*').in('status', ['approved', 'rejected', 'sent']).order('created_at', { ascending: false }).limit(50),
-      supabase.from('email_queue').select('*').order('created_at', { ascending: false }).limit(200),
+      db.from('clients').select('*').eq('status', 'active').order('created_at', { ascending: true }),
+      db.from('email_queue').select('*').in('status', ['awaiting_approval', 'auto_pending']).order('created_at', { ascending: false }),
+      db.from('email_queue').select('*').in('status', ['approved', 'rejected', 'sent']).order('created_at', { ascending: false }).limit(50),
+      db.from('email_queue').select('*').order('created_at', { ascending: false }).limit(200),
     ]);
     if (!cRes.error) setClients((cRes.data as Client[]) || []);
     if (!pRes.error) setPending((pRes.data as EmailItem[]) || []);
@@ -445,6 +437,16 @@ export default function CSMPage() {
     if (!aRes.error) setAllEmails((aRes.data as EmailItem[]) || []);
     setLoading(false);
   };
+
+  useEffect(() => {
+    fetchData();
+    const db = supabase as any;
+    const ch = db.channel('csm_live')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'email_queue' }, fetchData)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'clients' }, fetchData)
+      .subscribe();
+    return () => { db.removeChannel(ch); };
+  }, []);
 
   /* Group emails by client slug */
   const emailsByClient = allEmails.reduce<Record<string, EmailItem[]>>((acc, e) => {
@@ -456,25 +458,26 @@ export default function CSMPage() {
 
   const handleAction = async (email: EmailItem, action: 'approved' | 'rejected') => {
     setProcessing(email.id);
+    const db = supabase as any;
     try {
-      await supabase.from('email_queue').update({ status: action }).eq('id', email.id);
-      await supabase.from('approvals').insert({ email_queue_id: email.id, approval_type: 'escalation_response', request_body: `${action} — ${email.from_email}: ${email.subject}`, status: action, approved_by: 'Josh' });
-      await supabase.from('audit_log').insert({ agent: 'Sophia CSM', action: `email_${action}`, details: { email_id: email.id, from: email.from_email, subject: email.subject, client: email.client }, status: 'success' });
+      await db.from('email_queue').update({ status: action }).eq('id', email.id);
+      await db.from('approvals').insert({ email_queue_id: email.id, approval_type: 'escalation_response', request_body: `${action} — ${email.from_email}: ${email.subject}`, status: action, approved_by: 'Josh' });
+      await db.from('audit_log').insert({ agent: 'Sophia CSM', action: `email_${action}`, details: { email_id: email.id, from: email.from_email, subject: email.subject, client: email.client }, status: 'success' });
       toast.success(action === 'approved' ? 'Approved — Sophia will send' : 'Rejected — held');
       setSelected(null);
     } catch { toast.error('Failed to process'); }
-    finally { setProcessing(null); }
+    finally { setProcessing(null); fetchData(); }
   };
 
   const handleHold = async (email: EmailItem) => {
     setProcessing(email.id);
     try {
-      await supabase.from('email_queue').update({ status: 'awaiting_approval' }).eq('id', email.id);
+      await (supabase as any).from('email_queue').update({ status: 'awaiting_approval' }).eq('id', email.id);
       toast.success('Held — moved to approval queue');
       setSelected(null);
     }
     catch { toast.error('Failed to hold'); }
-    finally { setProcessing(null); }
+    finally { setProcessing(null); fetchData(); }
   };
 
   const queueList     = queueTab === 'pending' ? pending : history;

@@ -3,7 +3,7 @@ import { toast } from 'sonner';
 import {
   Plus, RefreshCw, Building2, ChevronRight, X, Search,
   Mail, Globe, Tag, TrendingUp, Users, MessageSquare, Star,
-  Send, Clock, CheckCheck, CalendarCheck,
+  Send, Clock, CheckCheck, CalendarCheck, Trash2,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -812,6 +812,8 @@ export default function CRMPage() {
   const [search, setSearch]                 = useState('');
   const [showAddModal, setShowAddModal]     = useState(false);
   const [selectedLead, setSelectedLead]     = useState<Lead | null>(null);
+  const [visibleCount, setVisibleCount]     = useState(50);
+  const [deletingInvalid, setDeletingInvalid] = useState(false);
 
   const fetchLeads = useCallback(async (spin = false) => {
     if (spin) setSpinning(true);
@@ -875,6 +877,19 @@ export default function CRMPage() {
     fetchLeads();
   };
 
+  const handleDeleteInvalid = async () => {
+    const invalid = leads.filter(l => l.email_status === 'invalid' || l.email_status === 'risky');
+    if (invalid.length === 0) { toast.info('No invalid/risky leads to delete'); return; }
+    if (!confirm(`Delete ${invalid.length} invalid/risky leads? This cannot be undone.`)) return;
+    setDeletingInvalid(true);
+    const ids = invalid.map(l => l.id);
+    const { error } = await (supabase as any).from('leads').delete().in('id', ids);
+    setDeletingInvalid(false);
+    if (error) { toast.error('Delete failed: ' + error.message); return; }
+    toast.success(`Deleted ${invalid.length} invalid/risky leads`);
+    fetchLeads();
+  };
+
   // ── Derived stats ──────────────────────────────────────────────────────────
 
   const stats = useMemo(() => ({
@@ -910,6 +925,15 @@ export default function CRMPage() {
     }
     return list;
   }, [leads, activeStage, search]);
+
+  // Reset pagination when filter/search changes
+  useEffect(() => { setVisibleCount(50); }, [activeStage, search]);
+
+  const visibleLeads = useMemo(() => filteredLeads.slice(0, visibleCount), [filteredLeads, visibleCount]);
+
+  const invalidCount = useMemo(() =>
+    leads.filter(l => l.email_status === 'invalid' || l.email_status === 'risky').length,
+  [leads]);
 
   // ── Industry groups ────────────────────────────────────────────────────────
 
@@ -953,6 +977,18 @@ export default function CRMPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {invalidCount > 0 && (
+            <button
+              onClick={handleDeleteInvalid}
+              disabled={deletingInvalid}
+              title={`Delete ${invalidCount} invalid/risky leads`}
+              className="flex items-center gap-1.5 h-8 px-3 rounded-full text-xs font-semibold transition-all"
+              style={{ background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.3)', color: '#f87171' }}
+            >
+              <Trash2 className="h-3 w-3" />
+              <span className="hidden sm:inline">{invalidCount} invalid</span>
+            </button>
+          )}
           <button
             onClick={() => fetchLeads(true)}
             className="h-8 w-8 flex items-center justify-center rounded-full transition-all"
@@ -1150,7 +1186,7 @@ export default function CRMPage() {
             </div>
           ) : (
             <div className="space-y-2">
-              {filteredLeads.map(lead => {
+              {visibleLeads.map(lead => {
                 const hasReply    = !!lead.reply_received_at;
                 const industryTags = getIndustryTags(lead);
                 const steps        = logSteps[lead.id] || [];
@@ -1232,6 +1268,22 @@ export default function CRMPage() {
                   </div>
                 );
               })}
+
+              {/* Load more / count */}
+              <div className="flex items-center justify-between pt-1 pb-2">
+                <span className="text-[10px]" style={{ color: 'var(--tc-25)' }}>
+                  Showing {Math.min(visibleCount, filteredLeads.length)} of {filteredLeads.length} leads
+                </span>
+                {visibleCount < filteredLeads.length && (
+                  <button
+                    onClick={() => setVisibleCount(c => c + 50)}
+                    className="text-[10px] font-semibold px-3 py-1.5 rounded-full transition-all"
+                    style={{ background: `${B}12`, border: `1px solid ${B}30`, color: B }}
+                  >
+                    Load 50 more
+                  </button>
+                )}
+              </div>
             </div>
           )}
         </div>

@@ -1,7 +1,7 @@
 import {
   LayoutDashboard, ListTodo, DollarSign, Calendar,
   Settings, FileText, Users, ScrollText, BookOpen,
-  MonitorSpeaker, HeartHandshake, Video,
+  MonitorSpeaker, HeartHandshake, Video, Zap,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { cn } from "@/lib/utils";
@@ -20,6 +20,7 @@ const reportsNav = [
   { icon: ScrollText,  url: "/contracts", label: "Contracts" },
   { icon: ListTodo,    url: "/tasks",     label: "Tasks" },
   { icon: Calendar,    url: "/calendar",  label: "Calendar" },
+  { icon: Zap,         url: "/skills",    label: "Skills" },
 ];
 
 function NavItem({ icon: Icon, url, label, end }: {

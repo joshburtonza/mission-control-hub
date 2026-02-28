@@ -20,6 +20,7 @@ import VantaPage from "./pages/VantaPage";
 import CSMPage from "./pages/CSMPage";
 import DocsPage from "./pages/DocsPage";
 import ContractsPage from "./pages/ContractsPage";
+import SkillsPage from "./pages/SkillsPage";
 import NotFound from "./pages/NotFound";
 
 const App = () => (
@@ -36,6 +37,7 @@ const App = () => (
             <Route path="/content" element={<Content />} />
             <Route path="/docs" element={<DocsPage />} />
             <Route path="/contracts" element={<ContractsPage />} />
+            <Route path="/skills" element={<SkillsPage />} />
             <Route path="/tasks" element={<Tasks />} />
             <Route path="/calendar" element={<CalendarPage />} />
             <Route path="/settings" element={<SettingsPage />} />
