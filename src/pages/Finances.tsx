@@ -22,6 +22,14 @@ interface Subscription {
   id: string; name: string; category: string; amount: number;
   currency: string; billing_cycle: string; status: string; notes: string | null;
 }
+interface FinanceTransaction {
+  id: string; type: 'income' | 'expense'; amount: number;
+  category: string | null; description: string | null;
+  date: string; notes: string | null; created_at: string;
+}
+
+const INCOME_CATS  = ['Ascend LC', 'Race Technik', 'Favlog', 'Vanta Studios', 'Other'];
+const EXPENSE_CATS = ['Debt Payment', 'Business Sub', 'Personal Sub', 'Drawings', 'Business Expense', 'Personal Expense', 'Other'];
 
 /* ── Palette — electric blue only ── */
 const B1 = '#4B9EFF';
@@ -89,6 +97,275 @@ function calcMonths(remaining: number, monthly: number, annualRate: number): num
   if (monthly <= interest) return null;
   return Math.ceil(-Math.log(1 - interest / monthly) / Math.log(1 + r));
 }
+/* ── Avalanche payoff simulator ── */
+interface DebtSnapshot { balance: number; minPayment: number; }
+interface AvalancheResult { months: number; totalInterest: number; debtFreeDate: string; }
+
+function calcAvalanche(debts: DebtSnapshot[], extraMonthly: number): AvalancheResult {
+  const r = 0.22 / 12; // 22% p.a.
+  // sort by balance descending (avalanche: highest balance first)
+  const pool = debts
+    .filter(d => d.balance > 0)
+    .sort((a, b) => b.balance - a.balance)
+    .map(d => ({ balance: d.balance, min: d.minPayment }));
+
+  let extra = extraMonthly;
+  let month = 0;
+  let totalInterest = 0;
+
+  while (pool.some(d => d.balance > 0) && month < 360) {
+    month++;
+    // apply interest to all
+    for (const d of pool) {
+      if (d.balance <= 0) continue;
+      const interest = d.balance * r;
+      totalInterest += interest;
+      d.balance += interest;
+    }
+    // apply minimums to all
+    let freedExtra = 0;
+    for (const d of pool) {
+      if (d.balance <= 0) continue;
+      const payment = Math.min(d.min, d.balance);
+      d.balance -= payment;
+      if (d.balance <= 0) { d.balance = 0; freedExtra += d.min; }
+    }
+    extra += freedExtra;
+    // apply extra to target (highest balance first, already sorted)
+    let remaining = extra;
+    for (const d of pool) {
+      if (d.balance <= 0 || remaining <= 0) continue;
+      const payment = Math.min(remaining, d.balance);
+      d.balance -= payment;
+      remaining -= payment;
+      if (d.balance <= 0) d.balance = 0;
+    }
+  }
+
+  const now = new Date(2026, 1, 27); // Feb 2026 baseline
+  now.setMonth(now.getMonth() + month);
+  const debtFreeDate = now.toLocaleDateString('en-ZA', { month: 'short', year: 'numeric' });
+  return { months: month, totalInterest: Math.round(totalInterest), debtFreeDate };
+}
+
+/* ── Avalanche detailed payoff simulator (per-debt, per-month) ── */
+interface DebtNamedSnapshot { name: string; balance: number; minPayment: number; }
+interface MonthlyDebtRow { month: string; [debtName: string]: number | string; }
+interface AvalancheDetailed {
+  chartData: MonthlyDebtRow[];
+  payoffMonths: Record<string, number>;
+}
+
+function calcAvalancheDetailed(debts: DebtNamedSnapshot[], extraMonthly: number): AvalancheDetailed {
+  const r = 0.22 / 12;
+  const pool = debts
+    .filter(d => d.balance > 0)
+    .sort((a, b) => b.balance - a.balance)
+    .map(d => ({ name: d.name, balance: d.balance, min: d.minPayment }));
+
+  let extra = extraMonthly;
+  const payoffMonths: Record<string, number> = {};
+  const allRows: MonthlyDebtRow[] = [];
+
+  // Baseline: Mar 2026 = month index 0
+  const baseYear = 2026;
+  const baseMonth = 2; // March (0-indexed)
+
+  const monthLabel = (idx: number): string => {
+    const d = new Date(baseYear, baseMonth + idx, 1);
+    const mon = d.toLocaleString('en-US', { month: 'short' });
+    const yr  = String(d.getFullYear()).slice(2);
+    return `${mon} '${yr}`;
+  };
+
+  for (let month = 0; month < 360; month++) {
+    if (!pool.some(d => d.balance > 0)) break;
+
+    // Record balances at start of month
+    const row: MonthlyDebtRow = { month: monthLabel(month) };
+    for (const d of pool) {
+      row[d.name] = Math.max(0, Math.round(d.balance));
+    }
+    allRows.push(row);
+
+    // Apply interest
+    for (const d of pool) {
+      if (d.balance <= 0) continue;
+      d.balance += d.balance * r;
+    }
+
+    // Pay minimums; track freed minimums
+    let freedExtra = 0;
+    for (const d of pool) {
+      if (d.balance <= 0) continue;
+      const payment = Math.min(d.min, d.balance);
+      d.balance -= payment;
+      if (d.balance <= 0) {
+        d.balance = 0;
+        freedExtra += d.min;
+        if (!(d.name in payoffMonths)) payoffMonths[d.name] = month + 1;
+      }
+    }
+    extra += freedExtra;
+
+    // Apply extra to single highest-balance debt (pool already sorted desc by initial balance;
+    // re-sort active debts each month to always attack the current highest)
+    const active = pool.filter(d => d.balance > 0).sort((a, b) => b.balance - a.balance);
+    let remaining = extra;
+    for (const d of active) {
+      if (remaining <= 0) break;
+      const payment = Math.min(remaining, d.balance);
+      d.balance -= payment;
+      remaining -= payment;
+      if (d.balance <= 0) {
+        d.balance = 0;
+        if (!(d.name in payoffMonths)) payoffMonths[d.name] = month + 1;
+      }
+    }
+  }
+
+  // Mark any still-outstanding debts as not paid off
+  for (const d of pool) {
+    if (!(d.name in payoffMonths) && d.balance <= 0.01) {
+      payoffMonths[d.name] = allRows.length;
+    }
+  }
+
+  // Sample every 2nd month to keep chart readable (max ~40 points)
+  const chartData = allRows.filter((_, i) => i % 2 === 0);
+
+  return { chartData, payoffMonths };
+}
+
+/* ════════════════════════════════════════
+   Log Event Modal
+════════════════════════════════════════ */
+function LogEventModal({ isDark, onClose, onSaved }: { isDark: boolean; onClose: () => void; onSaved: () => void }) {
+  const [tab, setTab]           = useState<'income' | 'expense'>('income');
+  const [amount, setAmount]     = useState('');
+  const [category, setCategory] = useState('');
+  const [description, setDesc]  = useState('');
+  const [date, setDate]         = useState(new Date().toISOString().split('T')[0]);
+  const [notes, setNotes]       = useState('');
+  const [saving, setSaving]     = useState(false);
+  const overlayRef              = useRef<HTMLDivElement>(null);
+  const db                      = supabase as any;
+
+  const modalCard = {
+    background:            isDark ? 'rgba(18,18,30,0.98)' : '#ffffff',
+    backdropFilter:        'blur(24px)',
+    WebkitBackdropFilter:  'blur(24px)',
+    border:                isDark ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(0,0,0,0.1)',
+    boxShadow:             isDark ? '0 -8px 40px rgba(0,0,0,0.6)' : '0 -4px 24px rgba(0,0,0,0.12)',
+  } as React.CSSProperties;
+
+  const fld = {
+    width: '100%', boxSizing: 'border-box' as const,
+    background: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
+    border:     isDark ? '1px solid rgba(255,255,255,0.12)' : '1px solid rgba(0,0,0,0.12)',
+    borderRadius: '10px', padding: '10px 12px', outline: 'none',
+    color:      isDark ? 'rgba(255,255,255,0.9)' : '#111',
+    fontSize: '13px', colorScheme: isDark ? 'dark' as const : 'light' as const,
+  };
+  const lbl = {
+    display: 'block', fontSize: '10px', textTransform: 'uppercase' as const,
+    letterSpacing: '0.08em',
+    color: isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.4)', marginBottom: '6px',
+  };
+
+  const save = async () => {
+    if (!amount || !date) return;
+    setSaving(true);
+    const { error } = await db.from('finance_transactions').insert({
+      type: tab, amount: parseFloat(amount),
+      category: category || null, description: description || null,
+      date, notes: notes || null,
+    });
+    setSaving(false);
+    if (!error) { onSaved(); onClose(); }
+  };
+
+  const accent = tab === 'income' ? '#4ade80' : '#f87171';
+
+  return (
+    <div
+      ref={overlayRef}
+      onClick={e => { if (e.target === overlayRef.current) onClose(); }}
+      style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}
+    >
+      <style>{`@keyframes finSlideUp { from { transform:translateY(40px); opacity:0 } to { transform:translateY(0); opacity:1 } }`}</style>
+      <div
+        style={{ ...modalCard, borderRadius: '20px 20px 0 0', width: '100%', maxWidth: '520px', padding: `24px 20px calc(32px + env(safe-area-inset-bottom))`, animation: 'finSlideUp 0.22s ease', maxHeight: '90vh', overflowY: 'auto' }}
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+          <p style={{ fontSize: '15px', fontWeight: 600, color: isDark ? 'rgba(255,255,255,0.9)' : '#111' }}>Log Transaction</p>
+          <button onClick={onClose} style={{ background: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)', border: 'none', borderRadius: '8px', padding: '6px', cursor: 'pointer', color: isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center' }}>
+            <X size={14} />
+          </button>
+        </div>
+
+        {/* Income / Expense tabs */}
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', background: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)', borderRadius: '12px', padding: '4px' }}>
+          {(['income', 'expense'] as const).map(t => (
+            <button key={t} onClick={() => { setTab(t); setCategory(''); }}
+              style={{ flex: 1, padding: '8px', borderRadius: '9px', border: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', transition: 'all 0.15s',
+                background: tab === t ? (t === 'income' ? '#4ade80' : '#f87171') : 'transparent',
+                color: tab === t ? '#fff' : (isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.4)'),
+                boxShadow: tab === t ? (t === 'income' ? '0 0 16px rgba(74,222,128,0.4)' : '0 0 16px rgba(248,113,113,0.4)') : 'none' }}
+            >{t}</button>
+          ))}
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          {/* Amount + Date */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+            <div>
+              <label style={lbl}>Amount (ZAR) *</label>
+              <input type="number" value={amount} onChange={e => setAmount(e.target.value)} placeholder="0" style={fld} />
+            </div>
+            <div>
+              <label style={lbl}>Date *</label>
+              <input type="date" value={date} onChange={e => setDate(e.target.value)} style={fld} />
+            </div>
+          </div>
+
+          {/* Category */}
+          <div>
+            <label style={lbl}>Category</label>
+            <select value={category} onChange={e => setCategory(e.target.value)}
+              style={{ ...fld, color: category ? (isDark ? 'rgba(255,255,255,0.9)' : '#111') : (isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)'), cursor: 'pointer' }}>
+              <option value="">Select...</option>
+              {(tab === 'income' ? INCOME_CATS : EXPENSE_CATS).map(c => (
+                <option key={c} value={c} style={{ background: isDark ? '#1a1a2e' : '#fff' }}>{c}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Description */}
+          <div>
+            <label style={lbl}>Description</label>
+            <input type="text" value={description} onChange={e => setDesc(e.target.value)}
+              placeholder={tab === 'income' ? 'e.g. March retainer' : 'e.g. FNB card payment'}
+              style={fld} />
+          </div>
+
+          {/* Notes */}
+          <div>
+            <label style={lbl}>Notes</label>
+            <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} placeholder="Optional..." style={{ ...fld, resize: 'none' }} />
+          </div>
+
+          {/* Save */}
+          <button onClick={save} disabled={saving || !amount || !date}
+            style={{ marginTop: '4px', padding: '13px', borderRadius: '12px', border: 'none', cursor: amount && date ? 'pointer' : 'not-allowed', background: accent, color: '#fff', fontSize: '13px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', opacity: amount && date ? 1 : 0.5, boxShadow: `0 4px 16px ${tab === 'income' ? 'rgba(74,222,128,0.35)' : 'rgba(248,113,113,0.35)'}` }}
+          >{saving ? 'Saving...' : `Log ${tab === 'income' ? 'Income' : 'Expense'}`}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 /* ════════════════════════════════════════
    Page
@@ -113,17 +390,22 @@ export default function Finances() {
   const [newSub, setNewSub]             = useState({ name: '', amount: '', notes: '' });
   const [editSubId, setEditSubId]       = useState<string | null>(null);
   const [editSubData, setEditSubData]   = useState({ name: '', amount: '', notes: '' });
+  const [txns, setTxns]                 = useState<FinanceTransaction[]>([]);
+  const [txnsTableExists, setTxnsTable] = useState(true);
+  const [showLogModal, setShowLogModal] = useState(false);
+  const [expandedMonth, setExpandedMonth] = useState<string | null>(null);
 
   // Cast for tables not yet in generated types
   const db = supabase as any;
 
   const load = async (showSpin = false) => {
     if (showSpin) setSpin(true);
-    const [a, b, c, d] = await Promise.all([
+    const [a, b, c, d, e] = await Promise.all([
       supabase.from('income_entries').select('*').order('month', { ascending: false }),
       supabase.from('debt_entries').select('*'),
       db.from('subscriptions').select('*').order('name'),
       db.from('finance_config').select('*').eq('key', 'sajonix_balance').maybeSingle(),
+      db.from('finance_transactions').select('*').order('date', { ascending: false }),
     ]);
     if (a.data) setEntries(a.data as IncomeEntry[]);
     if (b.data) setDebt(b.data as unknown as DebtEntry[]);
@@ -131,6 +413,11 @@ export default function Finances() {
     if (d.data) {
       setSajonixBal(parseInt(d.data.value) || 71000);
       setSajonixId(d.data.id || '');
+    }
+    if (e.error && (e.error.code === 'PGRST205' || e.error.code === '42P01' || e.error.message?.includes('relation'))) {
+      setTxnsTable(false);
+    } else if (e.data) {
+      setTxns(e.data as FinanceTransaction[]);
     }
     setLoading(false);
     if (showSpin) setTimeout(() => setSpin(false), 400);
@@ -141,6 +428,7 @@ export default function Finances() {
     const ch = supabase.channel('fin3')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'income_entries' }, () => load())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'debt_entries' }, () => load())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'finance_transactions' }, () => load())
       .subscribe();
     return () => { supabase.removeChannel(ch); };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -242,9 +530,11 @@ export default function Finances() {
 
   // Net position
   const mrr          = total;
-  const joshDraw     = 36000; // Josh's draw ~R33-40k, using midpoint
-  const totalOutflow = totalSubsMonthly + totalDebtMinimums + joshDraw;
-  const netSurplus   = mrr - totalOutflow;
+  const joshDraw       = 57000; // Josh's drawings
+  // Business surplus: what stays in the business after draw + business subs
+  // Debt repayment is handled from personal draw (R57k - R36k living = R21k to debt)
+  const totalOutflow   = totalSubsMonthly + joshDraw;
+  const netSurplus     = mrr - totalOutflow; // business reserves building
 
   // Avalanche sort — highest interest rate first
   const sortedDebt = [...debt].sort((a, b) => (b.interest_rate || 0) - (a.interest_rate || 0));
@@ -533,11 +823,10 @@ export default function Finances() {
           <p className="text-[10px] uppercase tracking-widest mb-4" style={{ color: txt.label }}>Net Position</p>
           <div className="space-y-0">
             {[
-              { label: 'MRR',           value: mrr,          minus: false, highlight: false },
-              { label: "Josh's Draw",   value: joshDraw,     minus: true,  highlight: false },
-              { label: 'Subscriptions', value: totalSubsMonthly, minus: true, highlight: false },
-              { label: 'Debt Minimums', value: totalDebtMinimums, minus: true, highlight: false },
-              { label: 'Net Surplus',   value: netSurplus,   minus: false, highlight: true  },
+              { label: 'MRR',              value: mrr,              minus: false, highlight: false },
+              { label: 'Drawings',         value: joshDraw,         minus: true,  highlight: false },
+              { label: 'Business Subs',    value: totalSubsMonthly, minus: true,  highlight: false },
+              { label: 'Business Reserves', value: netSurplus,      minus: false, highlight: true  },
             ].map((row, i) => (
               <div key={row.label}
                 className="flex justify-between items-center py-2"
@@ -889,6 +1178,376 @@ export default function Finances() {
           </>
         )}
       </div>
+
+      {/* ══ Debt Projection ══ */}
+      {debt.length > 0 && (() => {
+        const DEBT_COLORS = ['#f87171', '#fb923c', '#facc15', '#4ade80', '#60a5fa', '#c084fc'];
+        // Minimums are paid from within living expenses (R36k), not from this budget.
+        // The full R21k surplus goes directly to the attack target each month.
+        // When a debt is paid off, its freed minimum rolls into the pool (cascade effect).
+        const extraNow = 21000;
+
+        const namedSnapshots: DebtNamedSnapshot[] = debt.map(d => ({
+          name: d.name,
+          balance: d.remaining_amount,
+          minPayment: d.monthly_payment,
+        }));
+
+        const { chartData, payoffMonths } = calcAvalancheDetailed(namedSnapshots, extraNow);
+
+        // Determine current avalanche target: highest remaining balance
+        const avalancheTarget = [...debt].sort((a, b) => b.remaining_amount - a.remaining_amount)[0]?.name ?? '';
+
+        // Helper: payoff month index → display date string "MMM 'YY"
+        const payoffDateStr = (monthIdx: number): string => {
+          const baseYear = 2026;
+          const baseMonth = 2; // March
+          const d = new Date(baseYear, baseMonth + monthIdx, 1);
+          const mon = d.toLocaleString('en-US', { month: 'short' });
+          const yr = String(d.getFullYear()).slice(2);
+          return `${mon} '${yr}`;
+        };
+
+        // Progress bar colour based on payoff horizon
+        const payoffColor = (monthIdx: number): string => {
+          if (monthIdx <= 18) return '#4ade80';
+          if (monthIdx <= 36) return '#facc15';
+          return '#f87171';
+        };
+
+        return (
+          <>
+            {/* Part A — Per-debt payoff projection cards */}
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              {debt.map((d, idx) => {
+                const pctPaid = d.total_amount > 0
+                  ? Math.max(0, Math.min(100, ((d.total_amount - d.remaining_amount) / d.total_amount) * 100))
+                  : 0;
+                const mIdx = payoffMonths[d.name] ?? 360;
+                const colour = payoffColor(mIdx);
+                const isTarget = d.name === avalancheTarget;
+                return (
+                  <div key={d.id} className="p-4 space-y-2.5" style={{
+                    ...card,
+                    borderRadius: '16px',
+                    position: 'relative',
+                  }}>
+                    {isTarget && (
+                      <span className="absolute top-3 right-3 text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full"
+                        style={{ background: `${B1}22`, color: B1, border: `1px solid ${B1}44` }}>
+                        target
+                      </span>
+                    )}
+                    <p className="text-[11px] font-semibold truncate pr-12" style={{ color: txt.body }}>{d.name}</p>
+                    <div>
+                      <p className="text-[17px] font-bold tabular-nums leading-tight" style={{ color: txt.head }}>
+                        {fmtFull(d.remaining_amount)}
+                      </p>
+                      <p className="text-[10px] mt-0.5 font-semibold" style={{ color: colour }}>
+                        Paid off {payoffDateStr(mIdx)}
+                      </p>
+                    </div>
+                    {/* Progress bar */}
+                    <div className="h-[3px] rounded-full overflow-hidden" style={{ background: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.07)' }}>
+                      <div className="h-full rounded-full transition-all duration-1000"
+                        style={{ width: `${pctPaid}%`, background: colour, boxShadow: isDark && pctPaid > 0 ? `0 0 6px ${colour}` : 'none' }} />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <p className="text-[10px]" style={{ color: txt.muted }}>{fmtFull(d.monthly_payment)}/mo</p>
+                      {isTarget && (
+                        <span className="text-[9px] px-1.5 py-0.5 rounded-full font-semibold"
+                          style={{ background: `${B1}18`, color: B1 }}>
+                          attack
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Part B — Stacked area chart */}
+            <div className="p-5" style={card}>
+              <div className="mb-4">
+                <p className="text-sm font-semibold" style={{ color: txt.head }}>Debt Paydown Projection</p>
+                <p className="text-[11px] mt-0.5" style={{ color: txt.muted }}>
+                  Avalanche method — all surplus attacks highest balance
+                </p>
+              </div>
+              <ResponsiveContainer width="100%" height={220}>
+                <AreaChart data={chartData} margin={{ top: 8, right: 8, left: -8, bottom: 0 }}>
+                  <CartesianGrid stroke={isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.05)'} vertical={false} />
+                  <XAxis
+                    dataKey="month"
+                    tick={{ fontSize: 9, fill: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.35)' }}
+                    axisLine={false}
+                    tickLine={false}
+                    interval="preserveStartEnd"
+                  />
+                  <YAxis
+                    tick={{ fontSize: 9, fill: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.35)' }}
+                    axisLine={false}
+                    tickLine={false}
+                    tickFormatter={(v: number) => {
+                      if (v >= 1_000_000) return 'R' + (v / 1_000_000).toFixed(1) + 'M';
+                      if (v >= 1_000) return 'R' + Math.round(v / 1000) + 'k';
+                      return 'R' + v;
+                    }}
+                  />
+                  <Tooltip
+                    content={({ active, payload, label }: any) => {
+                      if (!active || !payload?.length) return null;
+                      return (
+                        <div className="rounded-xl px-3.5 py-2.5" style={{
+                          background: isDark ? '#111827' : '#ffffff',
+                          border: `1px solid ${isDark ? 'rgba(75,158,255,0.2)' : 'rgba(75,158,255,0.3)'}`,
+                          boxShadow: `0 4px 20px ${isDark ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.12)'}`,
+                        }}>
+                          <p className="text-[9px] uppercase tracking-widest mb-1.5"
+                            style={{ color: isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.4)' }}>{label}</p>
+                          {[...payload].reverse().map((p: any, i: number) => (
+                            <div key={p.name + i} className="flex items-center gap-2 text-[11px]">
+                              <div className="h-[3px] w-3 rounded-full" style={{ background: p.fill }} />
+                              <span className="truncate max-w-[100px]" style={{ color: isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.5)' }}>{p.name}</span>
+                              <span className="font-semibold ml-auto pl-2" style={{ color: isDark ? '#fff' : '#111' }}>{fmtFull(p.value)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    }}
+                    cursor={{ stroke: 'rgba(75,158,255,0.15)', strokeWidth: 1, strokeDasharray: '4 4' }}
+                  />
+                  {debt.map((d, idx) => (
+                    <Area
+                      key={d.name}
+                      type="monotone"
+                      dataKey={d.name}
+                      stackId="debt"
+                      stroke={DEBT_COLORS[idx % DEBT_COLORS.length]}
+                      fill={DEBT_COLORS[idx % DEBT_COLORS.length]}
+                      fillOpacity={isDark ? 0.55 : 0.45}
+                      strokeWidth={1.5}
+                      dot={false}
+                      animationDuration={1200 + idx * 150}
+                      animationEasing="ease-out"
+                    />
+                  ))}
+                </AreaChart>
+              </ResponsiveContainer>
+              {/* Legend */}
+              <div className="flex flex-wrap gap-x-4 gap-y-1.5 mt-3">
+                {debt.map((d, idx) => (
+                  <div key={d.name} className="flex items-center gap-1.5">
+                    <div className="h-[3px] w-3 rounded-full" style={{ background: DEBT_COLORS[idx % DEBT_COLORS.length] }} />
+                    <span className="text-[10px]" style={{ color: txt.muted }}>{d.name}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </>
+        );
+      })()}
+
+      {/* ══ Row 6: Debt Attack Scenarios ══ */}
+      {(() => {
+        const debtSnapshots = debt.map(d => ({ balance: d.remaining_amount, minPayment: d.monthly_payment }));
+        if (debtSnapshots.length === 0) return null;
+        // Minimums are inside the R36k living costs — already paid.
+        // Full R21k surplus = pure attack. Freed minimums cascade as each debt is cleared.
+        const extraNow   = 21000;
+        const extraOzayr = 21000 + 20000; // +Ozayr R20k retainer
+        const minimumsOnly = calcAvalanche(debtSnapshots, 0);
+        const current      = calcAvalanche(debtSnapshots, extraNow);
+        const withOzayr    = calcAvalanche(debtSnapshots, extraOzayr);
+
+        const scenarios = [
+          { label: 'Minimums only',    result: minimumsOnly, extra: null },
+          { label: 'Current plan',     result: current,      extra: { vs: minimumsOnly, tag: 'R21k/mo pure surplus (mins in living costs)' } },
+          { label: '+Ozayr onboarded', result: withOzayr,    extra: { vs: minimumsOnly, tag: '+R20k retainer → R41k/mo attack' } },
+        ];
+
+        return (
+          <div style={card}>
+            <div className="px-5 py-4" style={{ borderBottom: `1px solid ${txt.divider}` }}>
+              <p className="text-sm font-semibold" style={{ color: txt.head }}>Debt Attack Scenarios</p>
+              <p className="text-[11px] mt-0.5" style={{ color: txt.muted }}>
+                {fmtFull(totalDebt)} total debt at 22% p.a. Avalanche method — highest balance first.
+              </p>
+            </div>
+            <div className="p-5 grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {scenarios.map(({ label, result, extra }) => {
+                const years = result.months / 12;
+                const dateColor = years <= 3 ? '#4ade80' : years <= 5 ? '#facc15' : '#f87171';
+                const savedMonths = extra ? extra.vs.months - result.months : 0;
+                const savedInterest = extra ? extra.vs.totalInterest - result.totalInterest : 0;
+                return (
+                  <div key={label} className="rounded-2xl p-4 space-y-3"
+                    style={{
+                      background: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.025)',
+                      border: `1px solid ${isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.07)'}`,
+                    }}>
+                    <div>
+                      <p className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: txt.label }}>{label}</p>
+                      {extra && (
+                        <p className="text-[9px] mt-0.5" style={{ color: txt.muted }}>{extra.tag}</p>
+                      )}
+                    </div>
+                    <div>
+                      <p className="text-[11px]" style={{ color: txt.muted }}>Debt-free by</p>
+                      <p className="text-[22px] font-bold leading-tight tabular-nums" style={{ color: dateColor }}>
+                        {result.debtFreeDate}
+                      </p>
+                    </div>
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-[11px]">
+                        <span style={{ color: txt.muted }}>Months</span>
+                        <span className="font-semibold tabular-nums" style={{ color: txt.body }}>{result.months}</span>
+                      </div>
+                      <div className="flex justify-between text-[11px]">
+                        <span style={{ color: txt.muted }}>Total interest</span>
+                        <span className="font-semibold tabular-nums" style={{ color: '#f87171' }}>{fmtFull(result.totalInterest)}</span>
+                      </div>
+                    </div>
+                    {extra && savedMonths > 0 && (
+                      <div className="pt-2 space-y-1" style={{ borderTop: `1px solid ${isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'}` }}>
+                        <div className="flex items-center gap-1.5">
+                          <div className="h-1.5 w-1.5 rounded-full shrink-0" style={{ background: '#4ade80' }} />
+                          <span className="text-[11px] font-medium" style={{ color: '#4ade80' }}>
+                            Saves {savedMonths} months
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <div className="h-1.5 w-1.5 rounded-full shrink-0" style={{ background: '#4ade80' }} />
+                          <span className="text-[11px] font-medium" style={{ color: '#4ade80' }}>
+                            Saves {fmtFull(savedInterest)} interest
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ══ Row 7: Monthly Transaction Log ══ */}
+      {txnsTableExists ? (
+        (() => {
+          if (txns.length === 0) return (
+            <div style={card} className="p-8 text-center">
+              <p className="text-sm font-semibold" style={{ color: txt.body }}>No transactions logged yet</p>
+              <p className="text-[11px] mt-1" style={{ color: txt.muted }}>Tap + to log your first income or expense</p>
+            </div>
+          );
+          const byMonth: Record<string, FinanceTransaction[]> = {};
+          for (const t of txns) {
+            const m = t.date.slice(0, 7);
+            if (!byMonth[m]) byMonth[m] = [];
+            byMonth[m].push(t);
+          }
+          const months = Object.keys(byMonth).sort((a, b) => b.localeCompare(a));
+          const currentMonth = new Date().toISOString().slice(0, 7);
+          return (
+            <div style={card}>
+              <div className="px-5 py-4" style={{ borderBottom: `1px solid ${txt.divider}` }}>
+                <p className="text-sm font-semibold" style={{ color: txt.head }}>Monthly Log</p>
+                <p className="text-[11px] mt-0.5" style={{ color: txt.muted }}>{txns.length} transaction{txns.length !== 1 ? 's' : ''} logged</p>
+              </div>
+              {months.map(m => {
+                const mTxns   = byMonth[m];
+                const mIn     = mTxns.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
+                const mOut    = mTxns.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+                const mNet    = mIn - mOut;
+                const isOpen  = expandedMonth !== null ? expandedMonth === m : m === currentMonth;
+                const label   = new Date(m + '-02').toLocaleDateString('en-ZA', { month: 'long', year: 'numeric' });
+                return (
+                  <div key={m} style={{ borderTop: `1px solid ${txt.divider}` }}>
+                    <button
+                      className="w-full px-5 py-3.5 flex items-center justify-between"
+                      style={{ background: 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left' }}
+                      onClick={() => setExpandedMonth(isOpen ? '' : m)}
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <span className="text-[13px] font-semibold" style={{ color: txt.body }}>{label}</span>
+                        <span className="text-[10px] px-2 py-0.5 rounded-full shrink-0"
+                          style={{ background: mNet >= 0 ? 'rgba(74,222,128,0.1)' : 'rgba(248,113,113,0.1)', color: mNet >= 0 ? '#4ade80' : '#f87171', border: `1px solid ${mNet >= 0 ? 'rgba(74,222,128,0.25)' : 'rgba(248,113,113,0.25)'}` }}>
+                          {mNet >= 0 ? '+' : ''}{fmtFull(mNet)}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-4 shrink-0">
+                        <span className="text-[11px] hidden sm:block" style={{ color: '#4ade80' }}>+{fmtFull(mIn)}</span>
+                        <span className="text-[11px] hidden sm:block" style={{ color: '#f87171' }}>{fmtFull(mOut)}</span>
+                        <span className="text-[10px]" style={{ color: txt.muted }}>{isOpen ? '▲' : '▼'}</span>
+                      </div>
+                    </button>
+                    {isOpen && (
+                      <div className="px-5 pb-3 space-y-0">
+                        {[...mTxns].sort((a, b) => b.date.localeCompare(a.date)).map(t => (
+                          <div key={t.id} className="flex items-center gap-3 py-2.5" style={{ borderTop: `1px solid ${txt.divider}` }}>
+                            <div className="h-2 w-2 rounded-full shrink-0" style={{ background: t.type === 'income' ? '#4ade80' : '#f87171' }} />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-[12px] truncate" style={{ color: txt.body }}>{t.description || t.category || t.type}</p>
+                              {t.category && t.description && <p className="text-[10px]" style={{ color: txt.muted }}>{t.category}</p>}
+                            </div>
+                            <div className="text-right shrink-0">
+                              <p className="text-[12px] font-semibold tabular-nums" style={{ color: t.type === 'income' ? '#4ade80' : '#f87171' }}>
+                                {t.type === 'income' ? '+' : '-'}{fmtFull(t.amount)}
+                              </p>
+                              <p className="text-[9px]" style={{ color: txt.muted }}>
+                                {new Date(t.date + 'T12:00:00').toLocaleDateString('en-ZA', { day: '2-digit', month: 'short' })}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })()
+      ) : (
+        <div style={{ ...card, borderRadius: '16px' }} className="p-5 space-y-3">
+          <p className="text-[12px] font-semibold" style={{ color: txt.body }}>Enable transaction log</p>
+          <p className="text-[11px]" style={{ color: txt.muted }}>Run in Supabase SQL editor to activate:</p>
+          <div className="rounded-xl p-3 font-mono text-[10px] overflow-auto" style={{ background: 'rgba(75,158,255,0.06)', border: '1px solid rgba(75,158,255,0.15)', color: `${B1}cc` }}>
+            <p>CREATE TABLE finance_transactions (</p>
+            <p>&nbsp;&nbsp;id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),</p>
+            <p>&nbsp;&nbsp;type        text NOT NULL CHECK (type IN ('income','expense')),</p>
+            <p>&nbsp;&nbsp;amount      numeric NOT NULL,</p>
+            <p>&nbsp;&nbsp;category    text,</p>
+            <p>&nbsp;&nbsp;description text,</p>
+            <p>&nbsp;&nbsp;date        date NOT NULL DEFAULT CURRENT_DATE,</p>
+            <p>&nbsp;&nbsp;notes       text,</p>
+            <p>&nbsp;&nbsp;created_at  timestamptz DEFAULT now()</p>
+            <p>);</p>
+            <p>ALTER TABLE finance_transactions ENABLE ROW LEVEL SECURITY;</p>
+            <p>CREATE POLICY "service_role_all" ON finance_transactions USING (true) WITH CHECK (true);</p>
+          </div>
+        </div>
+      )}
+
+      {/* Bottom spacer for FAB */}
+      <div className="h-24 md:h-16" />
+
+      {/* ── Log Transaction FAB ── */}
+      <button
+        onClick={() => setShowLogModal(true)}
+        className="fixed bottom-20 right-6 md:bottom-6"
+        style={{ position: 'fixed', zIndex: 900, width: '52px', height: '52px', borderRadius: '50%', border: 'none', cursor: 'pointer', background: '#4ade80', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 24px rgba(74,222,128,0.5), 0 0 0 1px rgba(74,222,128,0.3)', transition: 'transform 0.15s' }}
+        onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.transform = 'scale(1.08)'; }}
+        onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.transform = 'scale(1)'; }}
+        aria-label="Log transaction"
+      >
+        <Plus size={22} strokeWidth={2.5} />
+      </button>
+
+      {showLogModal && (
+        <LogEventModal isDark={isDark} onClose={() => setShowLogModal(false)} onSaved={() => load()} />
+      )}
 
     </div>
   );
