@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useRef, useState, ReactNode } from 'react';
 import { Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -22,43 +22,70 @@ interface AuthState {
 const AuthContext = createContext<AuthState | null>(null);
 
 async function fetchMCUser(email: string): Promise<MCUser | null> {
-  const { data } = await (supabase as any)
-    .from('mc_users')
-    .select('*')
-    .eq('email', email)
-    .single();
-  return data as MCUser | null;
+  try {
+    const { data, error } = await (supabase as any)
+      .from('mc_users')
+      .select('*')
+      .eq('email', email)
+      .single();
+    if (error) return null;
+    return data as MCUser | null;
+  } catch {
+    return null;
+  }
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession]   = useState<Session | null>(null);
   const [mcUser, setMCUser]     = useState<MCUser | null>(null);
   const [loading, setLoading]   = useState(true);
+  const loadingDone = useRef(false);
+
+  // Single helper — idempotent, first call wins
+  const markLoaded = () => {
+    if (!loadingDone.current) {
+      loadingDone.current = true;
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    // Restore existing session on mount
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      setSession(session);
-      if (session?.user?.email) {
-        const user = await fetchMCUser(session.user.email);
-        setMCUser(user);
-      }
-      setLoading(false);
-    }).catch(() => setLoading(false));
+    // Hard timeout — loading MUST clear within 6s no matter what
+    const fallback = setTimeout(markLoaded, 6000);
 
-    // Listen for auth changes (magic link callback, sign-out, etc.)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      setSession(session);
-      if (session?.user?.email) {
-        const user = await fetchMCUser(session.user.email);
-        setMCUser(user);
-      } else {
-        setMCUser(null);
+    // onAuthStateChange fires first in Supabase v2 (INITIAL_SESSION event)
+    // This is the primary path for clearing loading
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (_event, newSession) => {
+        setSession(newSession);
+        if (newSession?.user?.email) {
+          const user = await fetchMCUser(newSession.user.email);
+          setMCUser(user);
+        } else {
+          setMCUser(null);
+        }
+        markLoaded();
       }
-    });
+    );
 
-    return () => subscription.unsubscribe();
-  }, []);
+    // getSession() as a secondary path (handles cases where onAuthStateChange
+    // doesn't fire, e.g. server-side rendering edge cases)
+    supabase.auth.getSession().then(async ({ data: { session: s } }) => {
+      if (!loadingDone.current) {
+        setSession(s);
+        if (s?.user?.email) {
+          const user = await fetchMCUser(s.user.email);
+          setMCUser(user);
+        }
+        markLoaded();
+      }
+    }).catch(markLoaded);
+
+    return () => {
+      subscription.unsubscribe();
+      clearTimeout(fallback);
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const signIn = async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
