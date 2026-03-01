@@ -31,13 +31,12 @@ export function MiniChart({
     <div
       onMouseEnter={() => setIsHovering(true)}
       onMouseLeave={() => { setIsHovering(false); setHoveredIndex(null) }}
-      className={cn("flex items-end gap-1.5 w-full", className)}
-      style={{ height }}
+      className={cn("flex items-end gap-2 w-full", className)}
+      style={{ height: height + 24 }}
     >
       {data.map((item, index) => {
-        const heightPx = Math.max(4, (item.value / maxValue) * height)
+        const barHeight = Math.max(4, (item.value / maxValue) * height)
         const isHovered = hoveredIndex === index
-        const isNeighbor = hoveredIndex !== null && (index === hoveredIndex - 1 || index === hoveredIndex + 1)
         const isAnyHovered = hoveredIndex !== null
 
         const barColor = color || 'var(--tc-90)'
@@ -45,28 +44,32 @@ export function MiniChart({
         return (
           <div
             key={index}
-            className="relative flex-1 flex flex-col items-center justify-end h-full"
+            className="relative flex-1 flex flex-col items-center justify-end"
+            style={{ height: height + 24 }}
             onMouseEnter={() => setHoveredIndex(index)}
           >
             {/* Tooltip */}
             {isHovered && (
-              <div className="absolute -top-7 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-md text-[10px] font-semibold whitespace-nowrap z-10 pointer-events-none"
+              <div
+                className="absolute left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-md text-[10px] font-semibold whitespace-nowrap z-10 pointer-events-none"
                 style={{
+                  bottom: `${barHeight + 28}px`,
                   background: barColor,
-                  color: 'var(--s-bg)',
-                }}>
+                  color: '#000',
+                }}
+              >
                 {formatter(item.value)}
               </div>
             )}
 
             {/* Bar */}
             <div
-              className="w-full rounded-full transition-all duration-200 origin-bottom"
+              className="w-full transition-all duration-200"
               style={{
-                height: `${heightPx}px`,
+                height: `${barHeight}px`,
                 background: barColor,
-                opacity: isHovered ? 1 : isNeighbor ? 0.4 : isAnyHovered ? 0.15 : 0.25,
-                transform: isHovered ? 'scaleX(1.15) scaleY(1.02)' : isNeighbor ? 'scaleX(1.05)' : 'scaleX(1)',
+                opacity: isAnyHovered ? (isHovered ? 1 : 0.3) : 0.85,
+                borderRadius: '3px 3px 1px 1px',
               }}
             />
 
@@ -78,7 +81,7 @@ export function MiniChart({
                 opacity: isHovering && !isHovered ? 0.5 : 1,
               }}
             >
-              {item.label.charAt(0)}
+              {item.label}
             </span>
           </div>
         )

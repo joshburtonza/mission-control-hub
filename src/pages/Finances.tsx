@@ -555,15 +555,17 @@ export default function Finances() {
   /* ── Chart data ── */
   const months  = [...new Set(entries.map(e => e.month))].sort().slice(-8);
   const clients = [...new Set(entries.map(e => e.client))].slice(0, 4);
+  const fmtMonthLabel = (m: string) =>
+    new Date(m + '-01').toLocaleString('en-US', { month: 'short' });
   const lineData = months.map(m => {
-    const row: Record<string, any> = { month: m.slice(5) };
+    const row: Record<string, any> = { month: fmtMonthLabel(m) };
     clients.forEach(c => {
       row[c.split(' ')[0]] = entries.filter(e => e.month === m && e.client === c).reduce((s, e) => s + e.amount, 0);
     });
     return row;
   });
   const barData = months.map(m => ({
-    month: m.slice(5),
+    month: fmtMonthLabel(m),
     collected:   entries.filter(e => e.month === m && e.status === 'paid').reduce((s, e) => s + e.amount, 0),
     outstanding: entries.filter(e => e.month === m && e.status !== 'paid').reduce((s, e) => s + e.amount, 0),
   }));
@@ -654,7 +656,7 @@ export default function Finances() {
               </div>
             ) : (() => {
               const revenueBarData = lineData.map(d => ({
-                label: String(d.month).slice(-3),
+                label: String(d.month),
                 value: clients.reduce((s, c) => s + (Number(d[c.split(' ')[0]]) || 0), 0),
               }));
               return (
@@ -766,7 +768,7 @@ export default function Finances() {
             <div className="h-44 flex items-center justify-center text-sm" style={{ color: txt.muted }}>No data</div>
           ) : (
             <MiniChart
-              data={barData.map(d => ({ label: String(d.month).slice(-3), value: Number(d.collected) || 0 }))}
+              data={barData.map(d => ({ label: String(d.month), value: Number(d.collected) || 0 }))}
               height={140}
               color={B1}
               formatter={v => fmtFull(v)}
@@ -789,7 +791,7 @@ export default function Finances() {
       {/* ══ Row 2b: Revenue vs Business Costs ══ */}
       {(() => {
         const incExpData = months.map(m => ({
-          month: m.slice(5),
+          month: fmtMonthLabel(m),
           income:   entries.filter(e => e.month === m && e.status === 'paid').reduce((s, e) => s + e.amount, 0),
           expenses: totalBizSubs,
         }));
