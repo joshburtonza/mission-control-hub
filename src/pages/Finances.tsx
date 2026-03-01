@@ -104,10 +104,10 @@ interface AvalancheResult { months: number; totalInterest: number; debtFreeDate:
 
 function calcAvalanche(debts: DebtSnapshot[], extraMonthly: number): AvalancheResult {
   const r = 0.22 / 12; // 22% p.a.
-  // sort by balance descending (avalanche: highest balance first)
+  // sort by balance ascending (snowball: smallest balance first)
   const pool = debts
     .filter(d => d.balance > 0)
-    .sort((a, b) => b.balance - a.balance)
+    .sort((a, b) => a.balance - b.balance)
     .map(d => ({ balance: d.balance, min: d.minPayment }));
 
   let extra = extraMonthly;
@@ -143,7 +143,7 @@ function calcAvalanche(debts: DebtSnapshot[], extraMonthly: number): AvalancheRe
     }
   }
 
-  const now = new Date(2026, 1, 27); // Feb 2026 baseline
+  const now = new Date();
   now.setMonth(now.getMonth() + month);
   const debtFreeDate = now.toLocaleDateString('en-ZA', { month: 'short', year: 'numeric' });
   return { months: month, totalInterest: Math.round(totalInterest), debtFreeDate };
@@ -161,7 +161,7 @@ function calcAvalancheDetailed(debts: DebtNamedSnapshot[], extraMonthly: number)
   const r = 0.22 / 12;
   const pool = debts
     .filter(d => d.balance > 0)
-    .sort((a, b) => b.balance - a.balance)
+    .sort((a, b) => a.balance - b.balance)
     .map(d => ({ name: d.name, balance: d.balance, min: d.minPayment }));
 
   let extra = extraMonthly;
@@ -209,9 +209,9 @@ function calcAvalancheDetailed(debts: DebtNamedSnapshot[], extraMonthly: number)
     }
     extra += freedExtra;
 
-    // Apply extra to single highest-balance debt (pool already sorted desc by initial balance;
-    // re-sort active debts each month to always attack the current highest)
-    const active = pool.filter(d => d.balance > 0).sort((a, b) => b.balance - a.balance);
+    // Apply extra to single lowest-balance debt (snowball: re-sort active debts each month
+    // to always attack the current smallest balance)
+    const active = pool.filter(d => d.balance > 0).sort((a, b) => a.balance - b.balance);
     let remaining = extra;
     for (const d of active) {
       if (remaining <= 0) break;
@@ -1197,8 +1197,8 @@ export default function Finances() {
 
         const { chartData, payoffMonths } = calcAvalancheDetailed(namedSnapshots, extraNow);
 
-        // Determine current avalanche target: highest remaining balance
-        const avalancheTarget = [...debt].sort((a, b) => b.remaining_amount - a.remaining_amount)[0]?.name ?? '';
+        // Determine current snowball target: lowest remaining balance
+        const avalancheTarget = [...debt].sort((a, b) => a.remaining_amount - b.remaining_amount)[0]?.name ?? '';
 
         // Helper: payoff month index → display date string "MMM 'YY"
         const payoffDateStr = (monthIdx: number): string => {
@@ -1273,7 +1273,7 @@ export default function Finances() {
               <div className="mb-4">
                 <p className="text-sm font-semibold" style={{ color: txt.head }}>Debt Paydown Projection</p>
                 <p className="text-[11px] mt-0.5" style={{ color: txt.muted }}>
-                  Avalanche method — all surplus attacks highest balance
+                  Snowball method — all surplus attacks lowest balance first
                 </p>
               </div>
               <ResponsiveContainer width="100%" height={220}>
@@ -1373,7 +1373,7 @@ export default function Finances() {
             <div className="px-5 py-4" style={{ borderBottom: `1px solid ${txt.divider}` }}>
               <p className="text-sm font-semibold" style={{ color: txt.head }}>Debt Attack Scenarios</p>
               <p className="text-[11px] mt-0.5" style={{ color: txt.muted }}>
-                {fmtFull(totalDebt)} total debt at 22% p.a. Avalanche method — highest balance first.
+                {fmtFull(totalDebt)} total debt at 22% p.a. Snowball method — lowest balance first.
               </p>
             </div>
             <div className="p-5 grid grid-cols-1 sm:grid-cols-3 gap-4">
