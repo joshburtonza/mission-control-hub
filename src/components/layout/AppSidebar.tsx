@@ -5,6 +5,7 @@ import {
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/contexts/AuthContext";
 
 const mainNav = [
   { icon: LayoutDashboard, url: "/",         label: "Dashboard", end: true },
@@ -52,6 +53,11 @@ const mobileNav = [
 ];
 
 export function AppSidebar() {
+  const { canAccess } = useAuth();
+  const visibleMain    = mainNav.filter(item => canAccess(item.url));
+  const visibleReports = reportsNav.filter(item => canAccess(item.url));
+  const visibleMobile  = mobileNav.filter(item => canAccess(item.url));
+
   return (
     <>
       {/* Desktop sidebar */}
@@ -72,11 +78,13 @@ export function AppSidebar() {
         {/* Main nav */}
         <nav className="flex flex-col gap-0.5 flex-1">
           <p className="text-[9px] font-semibold text-muted-foreground uppercase tracking-widest px-3 mb-1">Main</p>
-          {mainNav.map((item) => (
+          {visibleMain.map((item) => (
             <NavItem key={item.url} {...item} />
           ))}
-          <p className="text-[9px] font-semibold text-muted-foreground uppercase tracking-widest px-3 mt-4 mb-1">Work</p>
-          {reportsNav.map((item) => (
+          {visibleReports.length > 0 && (
+            <p className="text-[9px] font-semibold text-muted-foreground uppercase tracking-widest px-3 mt-4 mb-1">Work</p>
+          )}
+          {visibleReports.map((item) => (
             <NavItem key={item.url} {...item} />
           ))}
         </nav>
@@ -90,7 +98,7 @@ export function AppSidebar() {
       {/* Mobile bottom tab bar */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 glass-sidebar" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
         <div className="flex items-center justify-around h-16 px-1 pb-[env(safe-area-inset-bottom)]">
-          {mobileNav.map((item) => (
+          {visibleMobile.map((item) => (
             <NavLink
               key={item.url}
               to={item.url}

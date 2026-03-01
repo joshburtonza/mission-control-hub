@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
-import { Wifi, WifiOff, Sun, Moon, Bell } from "lucide-react";
+import { Wifi, WifiOff, Sun, Moon, Bell, LogOut } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useTheme } from "next-themes";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 const pageTitles: Record<string, { title: string; subtitle: string }> = {
   "/":           { title: "Mission Control",  subtitle: "System overview" },
@@ -33,6 +34,7 @@ export function Header() {
   const [online, setOnline]     = useState(navigator.onLine);
   const [unread, setUnread]     = useState(0);
   const { theme, setTheme }     = useTheme();
+  const { mcUser, signOut }     = useAuth();
 
   useEffect(() => {
     const timer = setInterval(() => setTime(new Date()), 1000);
@@ -119,6 +121,23 @@ export function Header() {
             {time.toLocaleDateString("en-ZA", { weekday: "short", day: "2-digit", month: "short" })}
           </p>
         </div>
+
+        {/* User + sign-out */}
+        {mcUser && (
+          <div className="flex items-center gap-2 pl-2" style={{ borderLeft: '1px solid rgba(255,255,255,0.08)' }}>
+            <div className="text-right hidden sm:block">
+              <p className="text-[11px] font-medium text-foreground leading-none">{mcUser.display_name || mcUser.email.split('@')[0]}</p>
+              <p className="text-[9px] text-muted-foreground mt-0.5 capitalize">{mcUser.role}</p>
+            </div>
+            <button
+              onClick={signOut}
+              title="Sign out"
+              className="h-7 w-7 flex items-center justify-center rounded-lg border border-border hover:border-red-400/40 hover:bg-red-400/10 transition-all text-muted-foreground hover:text-red-400"
+            >
+              <LogOut className="h-3 w-3" />
+            </button>
+          </div>
+        )}
       </div>
     </header>
   );

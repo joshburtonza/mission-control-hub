@@ -1,7 +1,9 @@
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
+import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import LoginPage from "./pages/LoginPage";
 import Index from "./pages/Index";
 import Agents from "./pages/Agents";
 import Tasks from "./pages/Tasks";
@@ -23,37 +25,86 @@ import ContractsPage from "./pages/ContractsPage";
 import SkillsPage from "./pages/SkillsPage";
 import NotFound from "./pages/NotFound";
 
+// ── Auth guard — wraps all protected routes ───────────────────────────────────
+function AuthGuard({ children }: { children: React.ReactNode }) {
+  const { session, mcUser, loading } = useAuth();
+  const location = useLocation();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--s-bg)' }}>
+        <div className="w-6 h-6 rounded-full border-2 border-[#4B9EFF] border-t-transparent animate-spin" />
+      </div>
+    );
+  }
+
+  // Not logged in → show login
+  if (!session) return <LoginPage />;
+
+  // Logged in but not in mc_users → show access denied
+  if (!mcUser) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center gap-3" style={{ background: 'var(--s-bg)' }}>
+        <p className="text-sm font-semibold" style={{ color: 'var(--tc-70)' }}>Access not configured</p>
+        <p className="text-xs" style={{ color: 'var(--tc-35)' }}>
+          {session.user.email} is not registered in Mission Control. Ask Josh to add you.
+        </p>
+      </div>
+    );
+  }
+
+  // Staff on a page they can't access → redirect to first allowed page
+  const { canAccess } = useAuth();
+  if (!canAccess(location.pathname) && !mcUser.allowed_pages.includes('*')) {
+    const first = mcUser.allowed_pages[0] || '/finances';
+    return <Navigate to={first} replace />;
+  }
+
+  return <>{children}</>;
+}
+
+// ── Inner app (has access to AuthContext) ─────────────────────────────────────
+function AppRoutes() {
+  return (
+    <AuthGuard>
+      <DashboardLayout>
+        <Routes>
+          <Route path="/" element={<Index />} />
+          <Route path="/crm" element={<CRMPage />} />
+          <Route path="/csm" element={<CSMPage />} />
+          <Route path="/clients" element={<ClientsPage />} />
+          <Route path="/finances" element={<Finances />} />
+          <Route path="/content" element={<Content />} />
+          <Route path="/docs" element={<DocsPage />} />
+          <Route path="/contracts" element={<ContractsPage />} />
+          <Route path="/skills" element={<SkillsPage />} />
+          <Route path="/tasks" element={<Tasks />} />
+          <Route path="/calendar" element={<CalendarPage />} />
+          <Route path="/settings" element={<SettingsPage />} />
+          {/* Legacy / utility routes */}
+          <Route path="/approvals" element={<Approvals />} />
+          <Route path="/notifications" element={<NotificationsPage />} />
+          <Route path="/status" element={<StatusPage />} />
+          <Route path="/agents" element={<Agents />} />
+          <Route path="/research" element={<ResearchPage />} />
+          <Route path="/vanta" element={<VantaPage />} />
+          <Route path="/audit" element={<AuditLog />} />
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </DashboardLayout>
+    </AuthGuard>
+  );
+}
+
 const App = () => (
   <TooltipProvider>
     <Toaster />
     <BrowserRouter>
-        <DashboardLayout>
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/crm" element={<CRMPage />} />
-            <Route path="/csm" element={<CSMPage />} />
-            <Route path="/clients" element={<ClientsPage />} />
-            <Route path="/finances" element={<Finances />} />
-            <Route path="/content" element={<Content />} />
-            <Route path="/docs" element={<DocsPage />} />
-            <Route path="/contracts" element={<ContractsPage />} />
-            <Route path="/skills" element={<SkillsPage />} />
-            <Route path="/tasks" element={<Tasks />} />
-            <Route path="/calendar" element={<CalendarPage />} />
-            <Route path="/settings" element={<SettingsPage />} />
-            {/* Legacy / utility routes — still accessible by URL */}
-            <Route path="/approvals" element={<Approvals />} />
-            <Route path="/notifications" element={<NotificationsPage />} />
-            <Route path="/status" element={<StatusPage />} />
-            <Route path="/agents" element={<Agents />} />
-            <Route path="/research" element={<ResearchPage />} />
-            <Route path="/vanta" element={<VantaPage />} />
-            <Route path="/audit" element={<AuditLog />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </DashboardLayout>
-      </BrowserRouter>
-    </TooltipProvider>
+      <AuthProvider>
+        <AppRoutes />
+      </AuthProvider>
+    </BrowserRouter>
+  </TooltipProvider>
 );
 
 export default App;

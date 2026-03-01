@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useTheme } from 'next-themes';
+import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import {
   AreaChart, Area, BarChart, Bar,
@@ -373,6 +374,7 @@ function LogEventModal({ isDark, onClose, onSaved }: { isDark: boolean; onClose:
 export default function Finances() {
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme !== 'light';
+  const { isOwner } = useAuth();
 
   const [entries, setEntries]           = useState<IncomeEntry[]>([]);
   const [debt, setDebt]                 = useState<DebtEntry[]>([]);
@@ -824,7 +826,7 @@ export default function Finances() {
           <div className="space-y-0">
             {[
               { label: 'MRR',              value: mrr,              minus: false, highlight: false },
-              { label: 'Drawings',         value: joshDraw,         minus: true,  highlight: false },
+              ...(isOwner ? [{ label: 'Drawings', value: joshDraw, minus: true, highlight: false }] : []),
               { label: 'Business Subs',    value: totalSubsMonthly, minus: true,  highlight: false },
               { label: 'Business Reserves', value: netSurplus,      minus: false, highlight: true  },
             ].map((row, i) => (
@@ -942,8 +944,8 @@ export default function Finances() {
           )}
         </div>
 
-        {/* Debt Paydown Tracker */}
-        <div style={card}>
+        {/* Debt Paydown Tracker — owner only */}
+        {isOwner && <div style={card}>
           <div className="px-5 py-4 flex items-center justify-between" style={{ borderBottom: `1px solid ${txt.divider}` }}>
             <p className="text-sm font-semibold" style={{ color: txt.head }}>Debt Paydown</p>
             <button onClick={() => setShowAddDebt(v => !v)}
@@ -1044,7 +1046,7 @@ export default function Finances() {
               })}
             </div>
           )}
-        </div>
+        </div>}
       </div>
 
       {/* ══ Row 5: Subscriptions ══ */}
@@ -1052,9 +1054,9 @@ export default function Finances() {
         <div className="px-5 py-4 flex items-center justify-between" style={{ borderBottom: `1px solid ${txt.divider}` }}>
           <p className="text-sm font-semibold" style={{ color: txt.head }}>Subscriptions</p>
           <div className="flex items-center gap-3">
-            {/* Business / Personal tabs */}
+            {/* Business / Personal tabs — personal hidden from staff */}
             <div className="flex rounded-lg overflow-hidden" style={{ border: `1px solid ${txt.inputBorder}` }}>
-              {(['business', 'personal'] as const).map(t => (
+              {(['business', ...(isOwner ? ['personal'] : [])] as ('business' | 'personal')[]).map(t => (
                 <button key={t} onClick={() => { setSubTab(t); setShowAddSub(false); }}
                   className="text-[11px] px-3 py-1 capitalize transition-all"
                   style={{
@@ -1179,8 +1181,8 @@ export default function Finances() {
         )}
       </div>
 
-      {/* ══ Debt Projection ══ */}
-      {debt.length > 0 && (() => {
+      {/* ══ Debt Projection — owner only ══ */}
+      {isOwner && debt.length > 0 && (() => {
         const DEBT_COLORS = ['#f87171', '#fb923c', '#facc15', '#4ade80', '#60a5fa', '#c084fc'];
         // Minimums are paid from within living expenses (R36k), not from this budget.
         // The full R21k surplus goes directly to the attack target each month.
