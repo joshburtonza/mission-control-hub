@@ -19,6 +19,7 @@ import { cn } from '@/lib/utils';
 interface IncomeEntry {
   id: string; client: string; project: string;
   amount: number; currency: string; status: string; month: string;
+  entry_type?: string; // 'recurring' | 'one_off' — DB column added in migration 008
 }
 interface DebtEntry {
   id: string; name: string; total_amount: number;
@@ -511,15 +512,22 @@ export default function Finances() {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
   })();
 
+  // One-off detection: DB column 'entry_type' takes priority; fallback to project keyword match
+  const isOneOff = (e: IncomeEntry) =>
+    e.entry_type === 'one_off' || /setup\s*fee|once.?off/i.test(e.project || '');
+
   const thisM       = entries.filter(e => e.month === thisMonth);
   const lastM       = entries.filter(e => e.month === lastMonth);
   const collected   = thisM.filter(e => e.status === 'paid').reduce((s, e) => s + e.amount, 0);
   const outstanding = thisM.filter(e => e.status !== 'paid').reduce((s, e) => s + e.amount, 0);
   const total       = collected + outstanding;
+  // MRR excludes one-off payments (setup fees etc)
+  const lastTotalRecurring = lastM.filter(e => !isOneOff(e)).reduce((s, e) => s + e.amount, 0);
   const lastTotal   = lastM.reduce((s, e) => s + e.amount, 0);
   const allTime     = entries.reduce((s, e) => s + e.amount, 0);
   const collRate    = total > 0 ? Math.round((collected / total) * 100) : 0;
-  const mom         = lastTotal > 0 ? Math.round(((total - lastTotal) / lastTotal) * 100) : 0;
+  const totalRecurring = thisM.filter(e => !isOneOff(e)).reduce((s, e) => s + e.amount, 0);
+  const mom         = lastTotalRecurring > 0 ? Math.round(((totalRecurring - lastTotalRecurring) / lastTotalRecurring) * 100) : 0;
   const totalDebt   = debt.reduce((s, d) => s + d.remaining_amount, 0);
 
   // Subscriptions
@@ -535,8 +543,8 @@ export default function Finances() {
   // Default to 22% SA credit card rate if column not yet in DB
   const totalMonthlyInterest = debt.reduce((s, d) => s + d.remaining_amount * ((d.interest_rate ?? 22) / 12 / 100), 0);
 
-  // Net position — use last month total as MRR proxy (current month incomplete early in month)
-  const mrr          = lastTotal || total;
+  // Net position — use last month recurring total as MRR proxy (excludes one-off setup fees)
+  const mrr          = lastTotalRecurring || totalRecurring;
   const joshDraw     = 57000; // Josh's drawings (current — increased from R33k)
   // Only business subs in outflow — personal subs (insurance, medical aid etc) are personal
   const totalOutflow = totalBizSubs + joshDraw;
@@ -942,6 +950,7 @@ export default function Finances() {
             <div>
               {thisM.map(e => {
                 const paid = e.status === 'paid';
+                const oneOff = isOneOff(e);
                 return (
                   <div key={e.id} className="flex items-center justify-between px-5 py-3 transition-colors"
                     style={{ borderBottom: `1px solid ${txt.divider}` }}>
@@ -950,7 +959,15 @@ export default function Finances() {
                         style={{ background: paid ? B1 : txt.muted,
                                  boxShadow: paid && isDark ? `0 0 5px ${B1}` : 'none' }} />
                       <div className="min-w-0">
-                        <p className="text-[13px] truncate" style={{ color: txt.body }}>{e.project}</p>
+                        <div className="flex items-center gap-1.5">
+                          <p className="text-[13px] truncate" style={{ color: txt.body }}>{e.project}</p>
+                          {oneOff && (
+                            <span className="shrink-0 text-[9px] font-semibold px-1.5 py-0.5 rounded-full"
+                              style={{ background: isDark ? 'rgba(250,204,21,0.12)' : 'rgba(161,128,0,0.1)', color: '#facc15' }}>
+                              once-off
+                            </span>
+                          )}
+                        </div>
                         <p className="text-[10px] mt-0.5" style={{ color: txt.muted }}>{e.client}</p>
                       </div>
                     </div>
@@ -968,7 +985,17 @@ export default function Finances() {
         </div>
 
         {/* Debt Paydown Tracker — owner only */}
-        {isOwner && <div style={card}>
+        {isOwner && (() => {
+          let payoffMonths: Record<string, number> = {};
+          if (debt.length > 0) {
+            const ns: DebtNamedSnapshot[] = debt.map(d => ({ name: d.name, balance: d.remaining_amount, minPayment: d.monthly_payment, rate: d.interest_rate ?? 22 }));
+            payoffMonths = calcAvalancheDetailed(ns, 21000).payoffMonths;
+          }
+          const debtPayoffDateStr = (mIdx: number) => {
+            const dt = new Date(2026, 2 + mIdx, 1);
+            return `${dt.toLocaleString('en-US', { month: 'short' })} '${String(dt.getFullYear()).slice(2)}`;
+          };
+          return (<div style={card}>
           <div className="px-5 py-4 flex items-center justify-between" style={{ borderBottom: `1px solid ${txt.divider}` }}>
             <p className="text-sm font-semibold" style={{ color: txt.head }}>Debt Paydown</p>
             <button onClick={() => setShowAddDebt(v => !v)}
@@ -1031,7 +1058,7 @@ export default function Finances() {
               {sortedDebt.map((d, idx) => {
                 const rate    = d.interest_rate ?? 22;
                 const pct     = d.total_amount > 0 ? Math.max(0, Math.min(100, ((d.total_amount - d.remaining_amount) / d.total_amount) * 100)) : 0;
-                const mths    = calcMonths(d.remaining_amount, d.monthly_payment, rate);
+                const mIdx    = d.name in payoffMonths ? payoffMonths[d.name] : null;
                 const intCost = Math.round(d.remaining_amount * (rate / 12 / 100));
                 const isTop   = idx === 0 && sortedDebt.length > 1;
                 return (
@@ -1056,7 +1083,7 @@ export default function Finances() {
                       <span>{fmtFull(d.remaining_amount)} remaining</span>
                       <div className="flex items-center gap-2">
                         <span style={{ color: '#F87171' }}>{fmtFull(intCost)}/mo interest</span>
-                        {mths && <span>· {mths}mo left</span>}
+                        {mIdx != null && <span>· {debtPayoffDateStr(mIdx)}</span>}
                       </div>
                     </div>
                     <div className="h-[3px] rounded-full overflow-hidden" style={{ background: txt.ringTrack }}>
@@ -1069,7 +1096,8 @@ export default function Finances() {
               })}
             </div>
           )}
-        </div>}
+        </div>);
+        })()}
       </div>
 
       {/* ══ Row 5: Subscriptions ══ */}
