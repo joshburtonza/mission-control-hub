@@ -804,17 +804,11 @@ export default function Finances() {
             {incExpData.length === 0 ? (
               <div className="h-44 flex items-center justify-center text-sm" style={{ color: txt.muted }}>No data</div>
             ) : (
-              <ChartContainer config={incExpConfig} className="h-[160px] w-full">
+              <ChartContainer config={incExpConfig} className="h-[180px] w-full">
                 <AreaChart data={incExpData} margin={{ top: 8, right: 0, left: 0, bottom: 0 }}>
                   <defs>
-                    <linearGradient id="grad-inc" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%"  stopColor={B1}       stopOpacity={0.18} />
-                      <stop offset="95%" stopColor={B1}       stopOpacity={0.03} />
-                    </linearGradient>
-                    <linearGradient id="grad-exp" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%"  stopColor="#F87171" stopOpacity={0.14} />
-                      <stop offset="95%" stopColor="#F87171" stopOpacity={0.03} />
-                    </linearGradient>
+                    <HatchedPattern id="hatch-inc" color={B1} />
+                    <HatchedPattern id="hatch-exp" color="#4ADE80" />
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke={txt.divider} vertical={false} />
                   <XAxis dataKey="month" tick={{ fontSize: 10, fill: txt.muted }} axisLine={false} tickLine={false} />
@@ -825,15 +819,15 @@ export default function Finances() {
                       )}
                     />
                   } />
-                  <Area type="monotone" dataKey="income" stroke={B1} strokeWidth={2}
-                    fill="url(#grad-inc)" dot={false} activeDot={{ r: 3, fill: B1 }} />
-                  <Area type="monotone" dataKey="expenses" stroke="#F87171" strokeWidth={1.5} strokeDasharray="4 3"
-                    fill="url(#grad-exp)" dot={false} activeDot={{ r: 3, fill: '#F87171' }} />
+                  <Area type="monotone" dataKey="income" stroke={B1} strokeWidth={2.5}
+                    fill="url(#hatch-inc)" dot={false} activeDot={{ r: 4, fill: B1 }} />
+                  <Area type="monotone" dataKey="expenses" stroke="#4ADE80" strokeWidth={2}
+                    fill="url(#hatch-exp)" dot={false} activeDot={{ r: 4, fill: '#4ADE80' }} />
                 </AreaChart>
               </ChartContainer>
             )}
             <div className="flex gap-5 mt-3">
-              {([['Revenue', B1], ['Costs (Subs + Drawings)', '#F87171']] as const).map(([lbl, col]) => (
+              {([['Revenue', B1], ['Costs (Subs + Drawings)', '#4ADE80']] as const).map(([lbl, col]) => (
                 <div key={lbl} className="flex items-center gap-1.5">
                   <div className="h-[3px] w-4 rounded-full" style={{ background: col }} />
                   <span className="text-[10px]" style={{ color: txt.muted }}>{lbl}</span>
