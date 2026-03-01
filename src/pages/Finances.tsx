@@ -537,12 +537,12 @@ export default function Finances() {
   // Default to 22% SA credit card rate if column not yet in DB
   const totalMonthlyInterest = debt.reduce((s, d) => s + d.remaining_amount * ((d.interest_rate ?? 22) / 12 / 100), 0);
 
-  // Net position — use last month's total as MRR (current month is incomplete early in month)
+  // Net position — use last month total as MRR proxy (current month incomplete early in month)
   const mrr          = lastTotal || total;
-  const joshDraw       = 33000; // Josh's drawings
-  // Business surplus: what stays in the business after draw + business subs
-  const totalOutflow   = totalSubsMonthly + joshDraw;
-  const netSurplus     = mrr - totalOutflow; // business reserves building
+  const joshDraw     = 33000; // Josh's drawings
+  // Only business subs in outflow — personal subs (insurance, medical aid etc) are personal
+  const totalOutflow = totalBizSubs + joshDraw;
+  const netSurplus   = mrr - totalOutflow;
 
   // Avalanche sort — highest interest rate first
   const sortedDebt = [...debt].sort((a, b) => (b.interest_rate || 0) - (a.interest_rate || 0));
@@ -673,12 +673,16 @@ export default function Finances() {
             <div>
               <div className="flex items-center gap-2 mb-1">
                 <div className="h-2 w-2 rounded-full" style={{ background: B1, boxShadow: `0 0 6px ${B1}` }} />
-                <span className="text-[10px] uppercase tracking-wider" style={{ color: txt.label }}>Monthly</span>
+                <span className="text-[10px] uppercase tracking-wider" style={{ color: txt.label }}>
+                  {total === 0 ? 'Last Month' : 'This Month'}
+                </span>
               </div>
               <p className="text-2xl font-bold tabular-nums leading-none" style={{ color: txt.head }}>
-                <AnimNum value={total} />
+                <AnimNum value={total === 0 ? lastTotal : total} />
               </p>
-              <p className="text-[10px] mt-0.5" style={{ color: txt.muted }}>{collRate}% collected</p>
+              <p className="text-[10px] mt-0.5" style={{ color: txt.muted }}>
+                {total === 0 ? 'Feb — most recent' : `${collRate}% collected`}
+              </p>
             </div>
             <div>
               <div className="flex items-center gap-2 mb-1">
@@ -848,7 +852,7 @@ export default function Finances() {
             {[
               { label: 'MRR',              value: mrr,              minus: false, highlight: false },
               { label: 'Drawings', value: joshDraw, minus: true, highlight: false },
-              { label: 'Business Subs',    value: totalSubsMonthly, minus: true,  highlight: false },
+              { label: 'Business Subs',    value: totalBizSubs,     minus: true,  highlight: false },
               { label: 'Business Reserves', value: netSurplus,      minus: false, highlight: true  },
             ].map((row, i) => (
               <div key={row.label}
