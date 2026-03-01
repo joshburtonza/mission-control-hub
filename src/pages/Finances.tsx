@@ -629,7 +629,7 @@ export default function Finances() {
             <div>
               <p className="text-[10px] uppercase tracking-widest" style={{ color: txt.label }}>Revenue Report</p>
               <div className="flex items-center gap-2 mt-0.5">
-                {mom !== 0 && (
+                {mom !== 0 && total > 0 && (
                   <span className="text-[11px]" style={{ color: mom > 0 ? B1 : txt.muted }}>
                     {mom > 0
                       ? <TrendingUp className="inline h-3 w-3 mr-0.5" />
@@ -1043,7 +1043,7 @@ export default function Finances() {
                         {isTop && (
                           <span className="shrink-0 text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full"
                             style={{ background: `${B1}22`, color: B1, border: `1px solid ${B1}44` }}>
-                            avalanche
+                            highest rate
                           </span>
                         )}
                       </div>
