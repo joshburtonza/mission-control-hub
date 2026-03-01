@@ -23,16 +23,21 @@ const AuthContext = createContext<AuthState | null>(null);
 
 async function fetchMCUser(email: string): Promise<MCUser | null> {
   try {
-    const { data, error } = await (supabase as any)
-      .from('mc_users')
-      .select('*')
-      .eq('email', email)
-      .single();
-    if (error) {
-      console.warn('[fetchMCUser] error for', email, error.code, error.message);
+    // Use raw fetch with anon key — bypasses JS client quirks, RLS is disabled on mc_users
+    const url = `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/mc_users?email=eq.${encodeURIComponent(email)}&select=*&limit=1`;
+    const resp = await fetch(url, {
+      headers: {
+        'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+      },
+    });
+    if (!resp.ok) {
+      console.warn('[fetchMCUser] HTTP', resp.status, 'for', email);
       return null;
     }
-    return data as MCUser | null;
+    const rows: MCUser[] = await resp.json();
+    if (!rows.length) console.warn('[fetchMCUser] no row found for', email);
+    return rows[0] ?? null;
   } catch (e) {
     console.warn('[fetchMCUser] exception for', email, e);
     return null;
