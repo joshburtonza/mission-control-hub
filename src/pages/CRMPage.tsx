@@ -64,6 +64,25 @@ interface Lead {
   founded_year: number | null;
   seniority: string | null;
   departments: string[] | null;
+  headline: string | null;
+  // Migration 010
+  logo_url: string | null;
+  company_phone: string | null;
+  alexa_ranking: number | null;
+  facebook_url: string | null;
+  angellist_url: string | null;
+  dept_head_count: Record<string, number> | null;
+  company_languages: string[] | null;
+  market_cap: string | null;
+  publicly_traded_symbol: string | null;
+  publicly_traded_exchange: string | null;
+  total_funding: string | null;
+  latest_funding_stage: string | null;
+  funding_events: Array<{ date: string; type: string; investors: string; amount: string | null; currency: string }> | null;
+  photo_url: string | null;
+  person_city: string | null;
+  person_country: string | null;
+  person_timezone: string | null;
   ai_analysis: AIAnalysis | null;
   ai_score: number | null;
   ai_analysed_at: string | null;
@@ -1136,12 +1155,33 @@ function LeadDetailSheet({
         <div className="p-5 border-b shrink-0" style={{ borderColor: 'var(--s-card-b)' }}>
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-center gap-3">
-              {/* Avatar */}
-              <div
-                className="w-12 h-12 rounded-full flex items-center justify-center shrink-0 text-base font-bold"
-                style={{ background: `${B}18`, border: `2px solid ${B}35`, color: B }}
-              >
-                {initials(lead)}
+              {/* Avatar — photo if available, else initials */}
+              <div className="relative shrink-0">
+                {lead.photo_url ? (
+                  <img
+                    src={lead.photo_url}
+                    alt={name}
+                    className="w-12 h-12 rounded-full object-cover"
+                    style={{ border: `2px solid ${B}35` }}
+                    onError={e => { (e.target as HTMLImageElement).style.display = 'none'; (e.target as HTMLImageElement).nextElementSibling?.removeAttribute('style'); }}
+                  />
+                ) : null}
+                <div
+                  className="w-12 h-12 rounded-full flex items-center justify-center text-base font-bold"
+                  style={{ background: `${B}18`, border: `2px solid ${B}35`, color: B, display: lead.photo_url ? 'none' : 'flex' }}
+                >
+                  {initials(lead)}
+                </div>
+                {/* Company logo badge */}
+                {lead.logo_url && (
+                  <img
+                    src={lead.logo_url}
+                    alt=""
+                    className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full object-cover bg-white"
+                    style={{ border: '1px solid var(--s-card-b)' }}
+                    onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                  />
+                )}
               </div>
               <div>
                 <h2 className="text-sm font-bold" style={{ color: 'var(--tc-90)' }}>{name}</h2>
@@ -1218,6 +1258,26 @@ function LeadDetailSheet({
                 Company
               </a>
             )}
+            {lead.facebook_url && (
+              <a href={lead.facebook_url} target="_blank" rel="noopener noreferrer"
+                className="flex items-center gap-1.5 text-[10px] px-2.5 py-1 rounded-full font-medium"
+                style={{ background: '#1877F215', color: '#1877F2', border: '1px solid #1877F230' }}
+                onClick={e => e.stopPropagation()}
+              >
+                <span className="text-[10px] font-bold">f</span>
+                Facebook
+              </a>
+            )}
+            {lead.angellist_url && (
+              <a href={lead.angellist_url} target="_blank" rel="noopener noreferrer"
+                className="flex items-center gap-1.5 text-[10px] px-2.5 py-1 rounded-full font-medium"
+                style={{ background: 'rgba(0,0,0,0.08)', color: 'var(--tc-55)', border: '1px solid var(--s-pill-b)' }}
+                onClick={e => e.stopPropagation()}
+              >
+                <span className="text-[10px]">✦</span>
+                AngelList
+              </a>
+            )}
           </div>
         </div>
 
@@ -1252,6 +1312,18 @@ function LeadDetailSheet({
                   <div className="mt-0.5"><ScoreBadge score={eff.quality_score} /></div>
                 </div>
               ) : null}
+              {lead.person_city || lead.person_country ? (
+                <div>
+                  <span style={{ color: 'var(--tc-30)' }}>Person Location</span>
+                  <p style={{ color: 'var(--tc-65)' }}>{[lead.person_city, lead.person_country].filter(Boolean).join(', ')}</p>
+                </div>
+              ) : null}
+              {lead.person_timezone ? (
+                <div>
+                  <span style={{ color: 'var(--tc-30)' }}>Timezone</span>
+                  <p style={{ color: 'var(--tc-65)' }}>{lead.person_timezone.replace('_', ' ')}</p>
+                </div>
+              ) : null}
               {eff.enriched_at ? (
                 <div className="col-span-2">
                   <span style={{ color: 'var(--tc-30)' }}>Enriched</span>
@@ -1267,7 +1339,8 @@ function LeadDetailSheet({
           </div>
 
           {/* Company Intel */}
-          {(lead.company_description || lead.tech_stack?.length || lead.annual_revenue || lead.founded_year || lead.departments?.length) && (
+          {(lead.company_description || lead.tech_stack?.length || lead.annual_revenue || lead.founded_year || lead.departments?.length ||
+            lead.total_funding || lead.alexa_ranking || lead.publicly_traded_symbol || lead.dept_head_count || lead.company_phone) && (
             <div className="rounded-xl p-3 space-y-2.5" style={{ background: 'var(--s-hover)', border: '1px solid var(--s-card-b)' }}>
               <p className="text-[9px] uppercase tracking-widest" style={{ color: 'var(--tc-30)' }}>Company Intel</p>
 
@@ -1292,6 +1365,45 @@ function LeadDetailSheet({
                     <p style={{ color: 'var(--tc-65)' }}>{lead.founded_year}</p>
                   </div>
                 )}
+                {lead.total_funding && (
+                  <div>
+                    <span style={{ color: 'var(--tc-30)' }}>Total Funding</span>
+                    <p style={{ color: '#4ade80' }}>{lead.total_funding}</p>
+                  </div>
+                )}
+                {lead.latest_funding_stage && (
+                  <div>
+                    <span style={{ color: 'var(--tc-30)' }}>Stage</span>
+                    <p style={{ color: 'var(--tc-65)' }}>{lead.latest_funding_stage}</p>
+                  </div>
+                )}
+                {lead.alexa_ranking && (
+                  <div>
+                    <span style={{ color: 'var(--tc-30)' }}>Alexa Rank</span>
+                    <p style={{ color: 'var(--tc-65)' }}>#{lead.alexa_ranking.toLocaleString()}</p>
+                  </div>
+                )}
+                {lead.market_cap && (
+                  <div>
+                    <span style={{ color: 'var(--tc-30)' }}>Market Cap</span>
+                    <p style={{ color: 'var(--tc-65)' }}>{lead.market_cap}</p>
+                  </div>
+                )}
+                {lead.publicly_traded_symbol && (
+                  <div>
+                    <span style={{ color: 'var(--tc-30)' }}>Listed</span>
+                    <p style={{ color: 'var(--tc-65)' }}>
+                      {lead.publicly_traded_symbol}
+                      {lead.publicly_traded_exchange && <span style={{ color: 'var(--tc-35)' }}> · {lead.publicly_traded_exchange.toUpperCase()}</span>}
+                    </p>
+                  </div>
+                )}
+                {lead.company_phone && (
+                  <div>
+                    <span style={{ color: 'var(--tc-30)' }}>Phone</span>
+                    <p style={{ color: 'var(--tc-65)' }}>{lead.company_phone}</p>
+                  </div>
+                )}
                 {lead.departments?.length ? (
                   <div className="col-span-2">
                     <span style={{ color: 'var(--tc-30)' }}>Department</span>
@@ -1299,6 +1411,41 @@ function LeadDetailSheet({
                   </div>
                 ) : null}
               </div>
+
+              {/* Funding events */}
+              {lead.funding_events?.length ? (
+                <div>
+                  <p className="text-[9px] uppercase tracking-widest mb-1.5" style={{ color: 'var(--tc-30)' }}>Funding History</p>
+                  <div className="space-y-1">
+                    {lead.funding_events.slice(0, 4).map((ev, i) => (
+                      <div key={i} className="flex items-center justify-between text-[10px]">
+                        <span style={{ color: 'var(--tc-55)' }}>{ev.type}</span>
+                        <span style={{ color: 'var(--tc-35)' }}>
+                          {ev.amount ? `${ev.currency}${ev.amount} · ` : ''}
+                          {ev.date ? new Date(ev.date).getFullYear() : ''}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
+              {/* Dept head count */}
+              {lead.dept_head_count && Object.keys(lead.dept_head_count).length > 0 ? (
+                <div>
+                  <p className="text-[9px] uppercase tracking-widest mb-1.5" style={{ color: 'var(--tc-30)' }}>Team Breakdown</p>
+                  <div className="flex flex-wrap gap-x-3 gap-y-1">
+                    {Object.entries(lead.dept_head_count)
+                      .sort((a, b) => b[1] - a[1])
+                      .slice(0, 8)
+                      .map(([dept, count]) => (
+                        <span key={dept} className="text-[10px] capitalize" style={{ color: 'var(--tc-50)' }}>
+                          {dept.replace(/_/g, ' ')} <span style={{ color: 'var(--tc-70)' }}>{count}</span>
+                        </span>
+                      ))}
+                  </div>
+                </div>
+              ) : null}
 
               {lead.tech_stack?.length ? (
                 <div>
