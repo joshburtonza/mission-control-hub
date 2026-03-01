@@ -132,6 +132,27 @@ function locationStr(lead: Lead) {
   return lead.location_city || lead.location_country || null;
 }
 
+// Parse enrichment data from legacy notes blobs as fallback for pre-migration leads
+function parseNotes(notes: string | null): {
+  location?: string; industry?: string; employee_count?: number;
+  linkedin_url?: string; apollo_id?: string; title?: string;
+} {
+  if (!notes) return {};
+  const get = (key: string) => {
+    const m = notes.match(new RegExp(`^${key}:\\s*(.+)$`, 'mi'));
+    return m ? m[1].trim() : undefined;
+  };
+  const empRaw = get('Employees');
+  return {
+    location:       get('Location'),
+    industry:       get('Industry'),
+    employee_count: empRaw ? parseInt(empRaw, 10) || undefined : undefined,
+    linkedin_url:   get('LinkedIn'),
+    apollo_id:      get('Apollo ID'),
+    title:          get('Title'),
+  };
+}
+
 function empLabel(n: number | null) {
   if (!n) return null;
   if (n < 10)   return '1–9';
@@ -962,8 +983,20 @@ function LeadDetailSheet({
   };
 
   const nextStatuses = PIPELINE_STAGES.map(s => s.key).filter(s => s !== lead.status);
-  const loc = locationStr(lead);
-  const flag = countryFlag(lead.location_country);
+  // Merge proper columns with notes-blob fallback for pre-migration leads
+  const nb = parseNotes(lead.notes);
+  const eff = {
+    title:          lead.title          || nb.title,
+    linkedin_url:   lead.linkedin_url   || nb.linkedin_url,
+    industry:       lead.industry       || nb.industry,
+    employee_count: lead.employee_count != null ? lead.employee_count : nb.employee_count,
+    enriched_at:    lead.enriched_at,
+    location:       locationStr(lead) || nb.location,
+    location_country: lead.location_country,
+    quality_score:  lead.quality_score,
+  };
+  const loc = eff.location;
+  const flag = countryFlag(eff.location_country || (nb.location?.split(', ').pop() ?? null));
   const name = fullName(lead);
 
   const inputStyle: React.CSSProperties = {
@@ -986,17 +1019,17 @@ function LeadDetailSheet({
         className="fixed top-0 right-0 bottom-0 z-50 flex flex-col overflow-hidden"
         style={{
           width: '420px',
-          background: 'rgba(8,9,18,0.95)',
+          background: 'var(--s-card)',
           backdropFilter: 'blur(32px) saturate(180%)',
           WebkitBackdropFilter: 'blur(32px) saturate(180%)',
-          borderLeft: '1px solid rgba(255,255,255,0.08)',
-          boxShadow: '-24px 0 64px rgba(0,0,0,0.5)',
+          borderLeft: '1px solid var(--s-card-b)',
+          boxShadow: '-24px 0 64px rgba(0,0,0,0.35)',
           transform: visible ? 'translateX(0)' : 'translateX(100%)',
           transition: 'transform 0.25s cubic-bezier(0.32, 0.72, 0, 1)',
         }}
       >
         {/* Header */}
-        <div className="p-5 border-b shrink-0" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
+        <div className="p-5 border-b shrink-0" style={{ borderColor: 'var(--s-card-b)' }}>
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-center gap-3">
               {/* Avatar */}
@@ -1008,8 +1041,8 @@ function LeadDetailSheet({
               </div>
               <div>
                 <h2 className="text-sm font-bold" style={{ color: 'var(--tc-90)' }}>{name}</h2>
-                {lead.title && (
-                  <p className="text-[11px]" style={{ color: 'var(--tc-50)' }}>{lead.title}</p>
+                {eff.title && (
+                  <p className="text-[11px]" style={{ color: 'var(--tc-50)' }}>{eff.title}</p>
                 )}
                 {lead.company && (
                   <p className="text-[11px]" style={{ color: 'var(--tc-40)' }}>{lead.company}</p>
@@ -1024,9 +1057,9 @@ function LeadDetailSheet({
           {/* Quick links */}
           <div className="flex items-center gap-2 mt-3 flex-wrap">
             <StatusPill status={lead.status} />
-            {lead.linkedin_url && (
+            {eff.linkedin_url && (
               <a
-                href={lead.linkedin_url}
+                href={eff.linkedin_url}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-1.5 text-[10px] px-2.5 py-1 rounded-full font-medium"
@@ -1057,44 +1090,49 @@ function LeadDetailSheet({
         <div className="flex-1 overflow-y-auto p-5 space-y-4">
 
           {/* Enrichment card */}
-          <div className="rounded-xl p-3 space-y-2" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+          <div className="rounded-xl p-3 space-y-2" style={{ background: 'var(--s-hover)', border: '1px solid var(--s-card-b)' }}>
             <p className="text-[9px] uppercase tracking-widest" style={{ color: 'var(--tc-30)' }}>Enrichment</p>
             <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-[11px]">
-              {lead.industry && (
+              {eff.industry ? (
                 <div>
                   <span style={{ color: 'var(--tc-30)' }}>Industry</span>
-                  <p style={{ color: 'var(--tc-65)' }}>{lead.industry}</p>
+                  <p style={{ color: 'var(--tc-65)' }}>{eff.industry}</p>
                 </div>
-              )}
-              {lead.employee_count != null && (
+              ) : null}
+              {eff.employee_count != null ? (
                 <div>
                   <span style={{ color: 'var(--tc-30)' }}>Employees</span>
-                  <p style={{ color: 'var(--tc-65)' }}>{empLabel(lead.employee_count)} ({lead.employee_count})</p>
+                  <p style={{ color: 'var(--tc-65)' }}>{empLabel(eff.employee_count)} ({eff.employee_count})</p>
                 </div>
-              )}
-              {loc && (
+              ) : null}
+              {loc ? (
                 <div>
                   <span style={{ color: 'var(--tc-30)' }}>Location</span>
                   <p style={{ color: 'var(--tc-65)' }}>{flag} {loc}</p>
                 </div>
-              )}
-              {lead.quality_score > 0 && (
+              ) : null}
+              {eff.quality_score > 0 ? (
                 <div>
                   <span style={{ color: 'var(--tc-30)' }}>Score</span>
-                  <div className="mt-0.5"><ScoreBadge score={lead.quality_score} /></div>
+                  <div className="mt-0.5"><ScoreBadge score={eff.quality_score} /></div>
                 </div>
-              )}
-              {lead.enriched_at && (
+              ) : null}
+              {eff.enriched_at ? (
                 <div className="col-span-2">
                   <span style={{ color: 'var(--tc-30)' }}>Enriched</span>
-                  <p style={{ color: 'var(--tc-40)' }}>{timeSince(lead.enriched_at)}</p>
+                  <p style={{ color: 'var(--tc-40)' }}>{timeSince(eff.enriched_at)}</p>
                 </div>
-              )}
+              ) : null}
+              {!eff.industry && !eff.employee_count && !loc && !eff.quality_score ? (
+                <div className="col-span-2">
+                  <p style={{ color: 'var(--tc-25)' }}>No enrichment data yet</p>
+                </div>
+              ) : null}
             </div>
           </div>
 
           {/* Contact */}
-          <div className="rounded-xl p-3 space-y-2" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+          <div className="rounded-xl p-3 space-y-2" style={{ background: 'var(--s-hover)', border: '1px solid var(--s-card-b)' }}>
             <p className="text-[9px] uppercase tracking-widest" style={{ color: 'var(--tc-30)' }}>Contact</p>
             <div className="flex items-center gap-2">
               <Mail className="h-3.5 w-3.5 shrink-0" style={{ color: 'var(--tc-30)' }} />
