@@ -63,7 +63,7 @@ export function MiniChart({
 
             {/* Bar */}
             <div
-              className="w-full transition-all duration-200 origin-bottom"
+              className="w-[55%] transition-all duration-200 origin-bottom"
               style={{
                 height: `${heightPx}px`,
                 background: barColor,

@@ -537,8 +537,8 @@ export default function Finances() {
   // Default to 22% SA credit card rate if column not yet in DB
   const totalMonthlyInterest = debt.reduce((s, d) => s + d.remaining_amount * ((d.interest_rate ?? 22) / 12 / 100), 0);
 
-  // Net position
-  const mrr          = total;
+  // Net position — use last month's total as MRR (current month is incomplete early in month)
+  const mrr          = lastTotal || total;
   const joshDraw       = 33000; // Josh's drawings
   // Business surplus: what stays in the business after draw + business subs
   const totalOutflow   = totalSubsMonthly + joshDraw;
@@ -791,7 +791,7 @@ export default function Finances() {
       {(() => {
         const incExpData = months.map(m => ({
           month: fmtMonthLabel(m),
-          income:   entries.filter(e => e.month === m && e.status === 'paid').reduce((s, e) => s + e.amount, 0),
+          income:   entries.filter(e => e.month === m).reduce((s, e) => s + e.amount, 0),
           expenses: totalOutflow,
         }));
         const incExpConfig: ChartConfig = {
