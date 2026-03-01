@@ -431,6 +431,7 @@ export default function Finances() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'income_entries' }, () => load())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'debt_entries' }, () => load())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'finance_transactions' }, () => load())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'subscriptions' }, () => load())
       .subscribe();
     return () => { supabase.removeChannel(ch); };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
