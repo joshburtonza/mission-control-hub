@@ -539,9 +539,8 @@ export default function Finances() {
 
   // Net position
   const mrr          = total;
-  const joshDraw       = 57000; // Josh's drawings
+  const joshDraw       = 33000; // Josh's drawings
   // Business surplus: what stays in the business after draw + business subs
-  // Debt repayment is handled from personal draw (R57k - R36k living = R21k to debt)
   const totalOutflow   = totalSubsMonthly + joshDraw;
   const netSurplus     = mrr - totalOutflow; // business reserves building
 
@@ -649,7 +648,7 @@ export default function Finances() {
             </button>
           </div>
 
-          <div className="rounded-xl overflow-hidden pt-2">
+          <div className="rounded-xl overflow-visible pt-6">
             {lineData.length === 0 ? (
               <div className="h-52 flex items-center justify-center text-sm" style={{ color: txt.muted }}>
                 No data yet
@@ -763,7 +762,7 @@ export default function Finances() {
       {/* ══ Row 2: Monthly breakdown ══ */}
       <div className="p-6" style={card}>
         <p className="text-[10px] uppercase tracking-widest mb-5" style={{ color: txt.label }}>Monthly Breakdown</p>
-        <div className="pt-2">
+        <div className="pt-6 overflow-visible">
           {barData.length === 0 ? (
             <div className="h-44 flex items-center justify-center text-sm" style={{ color: txt.muted }}>No data</div>
           ) : (
