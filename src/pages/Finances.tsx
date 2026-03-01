@@ -149,7 +149,7 @@ function calcAvalanche(debts: DebtSnapshot[], extraMonthly: number): AvalancheRe
   }
 
   const now = new Date();
-  now.setMonth(now.getMonth() + month);
+  now.setMonth(now.getMonth() + month - 1);
   const debtFreeDate = now.toLocaleDateString('en-ZA', { month: 'short', year: 'numeric' });
   return { months: month, totalInterest: Math.round(totalInterest), debtFreeDate };
 }
@@ -208,7 +208,7 @@ function calcAvalancheDetailed(debts: DebtNamedSnapshot[], extraMonthly: number)
       if (d.balance <= 0) {
         d.balance = 0;
         freedExtra += d.min;
-        if (!(d.name in payoffMonths)) payoffMonths[d.name] = month + 1;
+        if (!(d.name in payoffMonths)) payoffMonths[d.name] = month;
       }
     }
     extra += freedExtra;
@@ -224,7 +224,7 @@ function calcAvalancheDetailed(debts: DebtNamedSnapshot[], extraMonthly: number)
       remaining -= payment;
       if (d.balance <= 0) {
         d.balance = 0;
-        if (!(d.name in payoffMonths)) payoffMonths[d.name] = month + 1;
+        if (!(d.name in payoffMonths)) payoffMonths[d.name] = month;
       }
     }
   }
@@ -232,7 +232,7 @@ function calcAvalancheDetailed(debts: DebtNamedSnapshot[], extraMonthly: number)
   // Mark any still-outstanding debts as not paid off
   for (const d of pool) {
     if (!(d.name in payoffMonths) && d.balance <= 0.01) {
-      payoffMonths[d.name] = allRows.length;
+      payoffMonths[d.name] = allRows.length - 1;
     }
   }
 
