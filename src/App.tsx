@@ -27,7 +27,8 @@ import NotFound from "./pages/NotFound";
 
 // ── Auth guard — wraps all protected routes ───────────────────────────────────
 function AuthGuard({ children }: { children: React.ReactNode }) {
-  const { session, mcUser, loading } = useAuth();
+  // All hooks must be called unconditionally at the top
+  const { session, mcUser, loading, canAccess } = useAuth();
   const location = useLocation();
 
   if (loading) {
@@ -54,7 +55,6 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
   }
 
   // Staff on a page they can't access → redirect to first allowed page
-  const { canAccess } = useAuth();
   if (!canAccess(location.pathname) && !mcUser.allowed_pages.includes('*')) {
     const first = mcUser.allowed_pages[0] || '/finances';
     return <Navigate to={first} replace />;

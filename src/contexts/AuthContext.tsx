@@ -44,7 +44,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setMCUser(user);
       }
       setLoading(false);
-    });
+    }).catch(() => setLoading(false));
 
     // Listen for auth changes (magic link callback, sign-out, etc.)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
