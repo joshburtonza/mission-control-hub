@@ -64,12 +64,14 @@ export function MiniChart({
 
             {/* Bar */}
             <div
-              className="w-full transition-all duration-200"
+              className="w-full max-w-[40px] transition-all duration-200"
               style={{
                 height: `${barHeight}px`,
                 background: barColor,
                 opacity: isAnyHovered ? (isHovered ? 1 : 0.3) : 0.85,
-                borderRadius: '3px 3px 1px 1px',
+                borderRadius: '4px 4px 2px 2px',
+                transform: isHovered ? 'scaleY(1.03)' : 'scaleY(1)',
+                transformOrigin: 'bottom',
               }}
             />
 
