@@ -105,16 +105,15 @@ function calcMonths(remaining: number, monthly: number, annualRate: number): num
   return Math.ceil(-Math.log(1 - interest / monthly) / Math.log(1 + r));
 }
 /* ── Avalanche payoff simulator ── */
-interface DebtSnapshot { balance: number; minPayment: number; }
+interface DebtSnapshot { balance: number; minPayment: number; rate?: number; }
 interface AvalancheResult { months: number; totalInterest: number; debtFreeDate: string; }
 
 function calcAvalanche(debts: DebtSnapshot[], extraMonthly: number): AvalancheResult {
-  const r = 0.22 / 12; // 22% p.a.
   // sort by balance ascending (snowball: smallest balance first)
   const pool = debts
     .filter(d => d.balance > 0)
     .sort((a, b) => a.balance - b.balance)
-    .map(d => ({ balance: d.balance, min: d.minPayment }));
+    .map(d => ({ balance: d.balance, min: d.minPayment, r: (d.rate ?? 22) / 12 / 100 }));
 
   let extra = extraMonthly;
   let month = 0;
@@ -122,10 +121,10 @@ function calcAvalanche(debts: DebtSnapshot[], extraMonthly: number): AvalancheRe
 
   while (pool.some(d => d.balance > 0) && month < 360) {
     month++;
-    // apply interest to all
+    // apply interest to all (per-debt rate)
     for (const d of pool) {
       if (d.balance <= 0) continue;
-      const interest = d.balance * r;
+      const interest = d.balance * d.r;
       totalInterest += interest;
       d.balance += interest;
     }
@@ -156,7 +155,7 @@ function calcAvalanche(debts: DebtSnapshot[], extraMonthly: number): AvalancheRe
 }
 
 /* ── Avalanche detailed payoff simulator (per-debt, per-month) ── */
-interface DebtNamedSnapshot { name: string; balance: number; minPayment: number; }
+interface DebtNamedSnapshot { name: string; balance: number; minPayment: number; rate?: number; }
 interface MonthlyDebtRow { month: string; [debtName: string]: number | string; }
 interface AvalancheDetailed {
   chartData: MonthlyDebtRow[];
@@ -164,11 +163,10 @@ interface AvalancheDetailed {
 }
 
 function calcAvalancheDetailed(debts: DebtNamedSnapshot[], extraMonthly: number): AvalancheDetailed {
-  const r = 0.22 / 12;
   const pool = debts
     .filter(d => d.balance > 0)
     .sort((a, b) => a.balance - b.balance)
-    .map(d => ({ name: d.name, balance: d.balance, min: d.minPayment }));
+    .map(d => ({ name: d.name, balance: d.balance, min: d.minPayment, r: (d.rate ?? 22) / 12 / 100 }));
 
   let extra = extraMonthly;
   const payoffMonths: Record<string, number> = {};
@@ -195,10 +193,10 @@ function calcAvalancheDetailed(debts: DebtNamedSnapshot[], extraMonthly: number)
     }
     allRows.push(row);
 
-    // Apply interest
+    // Apply interest (per-debt rate)
     for (const d of pool) {
       if (d.balance <= 0) continue;
-      d.balance += d.balance * r;
+      d.balance += d.balance * d.r;
     }
 
     // Pay minimums; track freed minimums
@@ -1218,6 +1216,7 @@ export default function Finances() {
           name: d.name,
           balance: d.remaining_amount,
           minPayment: d.monthly_payment,
+          rate: d.interest_rate ?? 22,
         }));
 
         const { chartData, payoffMonths } = calcAvalancheDetailed(namedSnapshots, extraNow);
@@ -1355,7 +1354,7 @@ export default function Finances() {
 
       {/* ══ Row 6: Debt Attack Scenarios ══ */}
       {(() => {
-        const debtSnapshots = debt.map(d => ({ balance: d.remaining_amount, minPayment: d.monthly_payment }));
+        const debtSnapshots = debt.map(d => ({ balance: d.remaining_amount, minPayment: d.monthly_payment, rate: d.interest_rate ?? 22 }));
         if (debtSnapshots.length === 0) return null;
         // Minimums are inside the R36k living costs — already paid.
         // Full R21k surplus = pure attack. Freed minimums cascade as each debt is cleared.
