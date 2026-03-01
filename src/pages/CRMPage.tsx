@@ -464,148 +464,206 @@ function LeadTable({
   }
 
   return (
-    <div style={CARD} className="overflow-hidden">
-      {/* Table header */}
-      <div
-        className="grid px-4 py-2 gap-3 text-[9px] uppercase tracking-widest border-b"
-        style={{
-          gridTemplateColumns: '32px 1fr 140px 100px 52px 80px 60px 20px',
-          color: 'var(--tc-30)',
-          borderColor: 'var(--s-divider)',
-        }}
-      >
-        <div />
-        <div className="flex items-center gap-3">
-          Name
-          <SortButton label="Company" sortKey="company" current={sortKey} dir={sortDir} onClick={onSort} />
-        </div>
-        <div>Location / Industry</div>
-        <div className="flex items-center gap-2">
-          <SortButton label="Score" sortKey="quality_score" current={sortKey} dir={sortDir} onClick={onSort} />
-          <span className="opacity-40">·</span>
-          <SortButton label="Stage" sortKey="status" current={sortKey} dir={sortDir} onClick={onSort} />
-        </div>
-        <div>Email</div>
-        <div>
-          <SortButton label="Last Touch" sortKey="last_contacted_at" current={sortKey} dir={sortDir} onClick={onSort} />
-        </div>
-        <div>Seq</div>
-        <div />
+    <div className="space-y-2">
+      {/* Sort toolbar */}
+      <div className="flex items-center gap-3 px-1">
+        <span className="text-[9px] uppercase tracking-widest" style={{ color: 'var(--tc-25)' }}>Sort:</span>
+        <SortButton label="Score"      sortKey="quality_score"      current={sortKey} dir={sortDir} onClick={onSort} />
+        <SortButton label="Last Touch" sortKey="last_contacted_at"  current={sortKey} dir={sortDir} onClick={onSort} />
+        <SortButton label="Company"    sortKey="company"            current={sortKey} dir={sortDir} onClick={onSort} />
+        <SortButton label="Stage"      sortKey="status"             current={sortKey} dir={sortDir} onClick={onSort} />
+        <SortButton label="Added"      sortKey="created_at"         current={sortKey} dir={sortDir} onClick={onSort} />
       </div>
 
-      {/* Rows */}
-      <div className="divide-y" style={{ borderColor: 'var(--s-divider)' }}>
-        {leads.map(lead => {
-          const hasReply = !!lead.reply_received_at;
-          const steps = logSteps[lead.id] || [];
-          const loc = locationStr(lead);
-          const flag = countryFlag(lead.location_country);
+      {/* Cards */}
+      {leads.map(lead => {
+        const hasReply    = !!lead.reply_received_at;
+        const isContacted = !!lead.last_contacted_at;
+        const steps       = logSteps[lead.id] || [];
+        const stepsCount  = steps.length;
+        const loc         = locationStr(lead);
+        const flag        = countryFlag(lead.location_country);
+        const isInvalid   = lead.email_status === 'invalid' || lead.email_status === 'risky';
 
-          return (
-            <div
-              key={lead.id}
-              className="grid items-center px-4 py-2.5 gap-3 cursor-pointer transition-colors"
-              style={{
-                gridTemplateColumns: '32px 1fr 140px 100px 52px 80px 60px 20px',
-                background: hasReply ? `${B}05` : 'transparent',
-              }}
-              onMouseEnter={e => (e.currentTarget.style.background = 'var(--s-hover)')}
-              onMouseLeave={e => (e.currentTarget.style.background = hasReply ? `${B}05` : 'transparent')}
-              onClick={() => onSelect(lead)}
-            >
+        return (
+          <div
+            key={lead.id}
+            className="rounded-2xl cursor-pointer transition-all"
+            style={{
+              background: hasReply ? `${B}07` : 'var(--s-card)',
+              backdropFilter: 'blur(20px)',
+              WebkitBackdropFilter: 'blur(20px)',
+              border: `1px solid ${hasReply ? `${B}30` : 'var(--s-card-b)'}`,
+            }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = `${B}40`; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = hasReply ? `${B}30` : 'var(--s-card-b)'; }}
+            onClick={() => onSelect(lead)}
+          >
+            {/* ── Row 1: Identity + status + sequence ── */}
+            <div className="flex items-center gap-3 px-4 pt-3 pb-2">
               {/* Avatar */}
               <div
-                className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-[10px] font-bold"
+                className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 text-[11px] font-bold"
                 style={{ background: `${B}15`, border: `1px solid ${B}30`, color: B }}
               >
                 {initials(lead)}
               </div>
 
-              {/* Name + title + company */}
-              <div className="min-w-0">
+              {/* Name + badges */}
+              <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="text-[12px] font-semibold truncate" style={{ color: 'var(--tc-85)' }}>{fullName(lead)}</span>
+                  <span className="text-[13px] font-semibold" style={{ color: 'var(--tc-88)' }}>{fullName(lead)}</span>
                   {hasReply && (
-                    <span className="text-[8px] px-1.5 py-0.5 rounded-full" style={{ background: `${B}15`, color: B, border: `1px solid ${B}30` }}>
-                      replied
+                    <span className="text-[8px] px-1.5 py-0.5 rounded-full font-semibold" style={{ background: '#4ade8015', color: '#4ade80', border: '1px solid #4ade8035' }}>
+                      ✉ replied
                     </span>
                   )}
-                  {(lead.email_status === 'invalid' || lead.email_status === 'risky') && (
+                  {isContacted && !hasReply && (
+                    <span className="text-[8px] px-1.5 py-0.5 rounded-full" style={{ background: `${B}12`, color: `${B}bb`, border: `1px solid ${B}28` }}>
+                      ✓ contacted {timeSince(lead.last_contacted_at)}
+                    </span>
+                  )}
+                  {!isContacted && lead.status === 'new' && (
+                    <span className="text-[8px] px-1.5 py-0.5 rounded-full" style={{ background: 'var(--s-hover)', color: 'var(--tc-25)', border: '1px solid var(--s-pill-b)' }}>
+                      not yet contacted
+                    </span>
+                  )}
+                  {isInvalid && (
                     <span className="text-[8px] px-1.5 py-0.5 rounded-full" style={{ background: 'rgba(248,113,113,0.1)', color: '#f87171', border: '1px solid rgba(248,113,113,0.25)' }}>
                       {lead.email_status}
                     </span>
                   )}
                 </div>
-                <p className="text-[10px] truncate mt-0.5" style={{ color: 'var(--tc-35)' }}>
-                  {lead.title && <span>{lead.title} · </span>}
-                  <span style={{ color: 'var(--tc-50)' }}>{lead.company || lead.email}</span>
+                <p className="text-[11px] mt-0.5 truncate" style={{ color: 'var(--tc-45)' }}>
+                  {[lead.title, lead.company].filter(Boolean).join(' @ ')}
                 </p>
               </div>
 
-              {/* Location + industry */}
-              <div className="min-w-0 space-y-0.5">
-                {loc && (
-                  <p className="text-[10px] truncate" style={{ color: 'var(--tc-40)' }}>
-                    {flag && <span className="mr-1">{flag}</span>}{loc}
-                  </p>
-                )}
-                {lead.industry && (
-                  <span
-                    className="text-[9px] px-1.5 py-0.5 rounded-full inline-block max-w-full truncate"
-                    style={{ background: `${B}10`, color: `${B}aa`, border: `1px solid ${B}20` }}
-                  >
-                    {lead.industry}
-                  </span>
-                )}
-              </div>
-
-              {/* Score + stage */}
-              <div className="space-y-1 min-w-0">
+              {/* Right cluster: score + stage + seq */}
+              <div className="flex items-center gap-2 shrink-0">
                 {lead.quality_score > 0 && <ScoreBadge score={lead.quality_score} />}
-                <div><StatusPill status={lead.status} /></div>
+                <StatusPill status={lead.status} />
+                {/* Sequence dots */}
+                <div className="flex items-center gap-0.5 ml-1">
+                  {[1, 2, 3].map(s => {
+                    const done = steps.includes(s);
+                    const meta = STEP_META[s];
+                    return (
+                      <div
+                        key={s}
+                        className="w-4 h-4 rounded-full flex items-center justify-center text-[7px] font-bold"
+                        title={`Step ${s}: ${meta.label}${done ? ' ✓ sent' : ''}`}
+                        style={{
+                          background: done ? `${meta.color}22` : 'var(--s-hover)',
+                          border: `1px solid ${done ? meta.color + '50' : 'var(--s-pill-b)'}`,
+                          color: done ? meta.color : 'var(--tc-15)',
+                        }}
+                      >
+                        {done ? '✓' : s}
+                      </div>
+                    );
+                  })}
+                </div>
+                <ChevronRight className="h-3.5 w-3.5 ml-1" style={{ color: 'var(--tc-20)' }} />
               </div>
-
-              {/* Email status */}
-              <div>
-                <EmailStatusDot status={lead.email_status} />
-                {lead.email_status === 'valid' && (
-                  <span className="w-1.5 h-1.5 rounded-full block mt-1" style={{ background: '#4ade80' }} title="verified" />
-                )}
-              </div>
-
-              {/* Last touch */}
-              <div className="text-[10px]" style={{ color: 'var(--tc-30)' }}>
-                {timeSince(lead.last_contacted_at || lead.created_at)}
-              </div>
-
-              {/* Sequence dots */}
-              <div className="flex items-center gap-0.5">
-                {[1, 2, 3].map(s => {
-                  const done = steps.includes(s);
-                  const meta = STEP_META[s];
-                  return (
-                    <div
-                      key={s}
-                      className="w-3.5 h-3.5 rounded-full flex items-center justify-center text-[7px] font-bold"
-                      title={meta.label}
-                      style={{
-                        background: done ? `${meta.color}20` : 'var(--s-hover)',
-                        border: `1px solid ${done ? meta.color + '45' : 'var(--s-pill-b)'}`,
-                        color: done ? meta.color : 'var(--tc-15)',
-                      }}
-                    >
-                      {done ? '✓' : s}
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Chevron */}
-              <ChevronRight className="h-3.5 w-3.5 shrink-0" style={{ color: 'var(--tc-20)' }} />
             </div>
-          );
-        })}
-      </div>
+
+            {/* ── Row 2: Enrichment strip ── */}
+            <div
+              className="flex items-center gap-2 px-4 pb-3 flex-wrap"
+              style={{ paddingLeft: '3.25rem' }}
+              onClick={e => e.stopPropagation()}
+            >
+              {/* Company size */}
+              {lead.employee_count != null && (
+                <span className="flex items-center gap-1 text-[10px]" style={{ color: 'var(--tc-40)' }}>
+                  <Users className="h-3 w-3 shrink-0" style={{ color: 'var(--tc-25)' }} />
+                  {empLabel(lead.employee_count)}
+                </span>
+              )}
+
+              {/* Industry */}
+              {lead.industry && (
+                <span
+                  className="text-[9px] px-1.5 py-0.5 rounded-full"
+                  style={{ background: `${B}0e`, color: `${B}99`, border: `1px solid ${B}20` }}
+                >
+                  {lead.industry}
+                </span>
+              )}
+
+              {/* Location */}
+              {loc && (
+                <span className="flex items-center gap-1 text-[10px]" style={{ color: 'var(--tc-35)' }}>
+                  <MapPin className="h-3 w-3 shrink-0" style={{ color: 'var(--tc-20)' }} />
+                  {flag && <span>{flag}</span>}
+                  {loc}
+                </span>
+              )}
+
+              {/* Divider */}
+              {(lead.linkedin_url || lead.website) && (loc || lead.industry || lead.employee_count != null) && (
+                <span style={{ color: 'var(--tc-15)' }}>·</span>
+              )}
+
+              {/* LinkedIn */}
+              {lead.linkedin_url && (
+                <a
+                  href={lead.linkedin_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-medium transition-colors"
+                  style={{ background: '#0077B512', color: '#0077B5', border: '1px solid #0077B528' }}
+                  title="View LinkedIn profile"
+                >
+                  <Linkedin className="h-2.5 w-2.5" />
+                  LinkedIn
+                </a>
+              )}
+
+              {/* Website */}
+              {lead.website && (
+                <a
+                  href={lead.website}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full transition-colors"
+                  style={{ background: 'var(--s-hover)', color: 'var(--tc-40)', border: '1px solid var(--s-pill-b)' }}
+                  title={lead.website}
+                >
+                  <Globe className="h-2.5 w-2.5" />
+                  {(() => {
+                    try { return new URL(lead.website).hostname.replace('www.', ''); } catch { return 'Website'; }
+                  })()}
+                </a>
+              )}
+
+              {/* Email + status */}
+              <span className="flex items-center gap-1.5 text-[10px] ml-auto" style={{ color: 'var(--tc-30)' }}>
+                <Mail className="h-2.5 w-2.5 shrink-0" style={{ color: 'var(--tc-20)' }} />
+                <span className="truncate max-w-[160px]" style={{ color: 'var(--tc-40)' }}>{lead.email}</span>
+                {lead.email_status === 'valid' && (
+                  <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: '#4ade80' }} title="Email verified" />
+                )}
+                {lead.email_status === 'catch_all' && (
+                  <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: '#facc15' }} title="Catch-all domain" />
+                )}
+                {lead.email_status === 'unverified' && (
+                  <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: '#94a3b8' }} title="Unverified" />
+                )}
+                {/* Outreach summary */}
+                {stepsCount > 0 && (
+                  <span style={{ color: 'var(--tc-25)' }}>· {stepsCount}/3 emails sent</span>
+                )}
+                {/* Last touch time */}
+                {isContacted && (
+                  <span style={{ color: 'var(--tc-25)' }}>· {timeSince(lead.last_contacted_at)}</span>
+                )}
+              </span>
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
