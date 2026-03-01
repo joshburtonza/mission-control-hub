@@ -826,7 +826,7 @@ export default function Finances() {
           <div className="space-y-0">
             {[
               { label: 'MRR',              value: mrr,              minus: false, highlight: false },
-              ...(isOwner ? [{ label: 'Drawings', value: joshDraw, minus: true, highlight: false }] : []),
+              { label: 'Drawings', value: joshDraw, minus: true, highlight: false },
               { label: 'Business Subs',    value: totalSubsMonthly, minus: true,  highlight: false },
               { label: 'Business Reserves', value: netSurplus,      minus: false, highlight: true  },
             ].map((row, i) => (
