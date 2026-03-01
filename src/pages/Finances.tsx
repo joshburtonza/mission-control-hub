@@ -872,7 +872,7 @@ export default function Finances() {
           </div>
           <div className="mt-3 pt-3" style={{ borderTop: `1px solid ${txt.divider}` }}>
             <div className="flex justify-between text-[10px]" style={{ color: txt.muted }}>
-              <span>Interest burning/mo (22%)</span>
+              <span>Interest burning/mo</span>
               <span style={{ color: '#F87171' }}>{fmtFull(Math.round(totalMonthlyInterest))}</span>
             </div>
           </div>
@@ -1306,37 +1306,39 @@ export default function Finances() {
                   return acc;
                 }, {} as ChartConfig);
                 return (
-                  <ChartContainer config={debtChartConfig} className="h-[300px]">
-                    <AreaChart data={chartData} margin={{ top: 12, right: 12, left: 12, bottom: 0 }}>
-                      <CartesianGrid stroke={isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.05)'} vertical={false} />
-                      <XAxis dataKey="month"
-                        tick={{ fontSize: 9, fill: txt.muted }} axisLine={false} tickLine={false}
-                        interval="preserveStartEnd" />
-                      <YAxis
-                        tick={{ fontSize: 9, fill: txt.muted }} axisLine={false} tickLine={false}
-                        tickFormatter={v => v >= 1000 ? `R${Math.round(v / 1000)}k` : `R${v}`}
-                        width={40} />
-                      <ChartTooltip cursor={{ stroke: 'rgba(75,158,255,0.15)', strokeWidth: 1, strokeDasharray: '4 4' }}
-                        content={<ChartTooltipContent formatter={(v) => fmtFull(Number(v))} />} />
-                      <defs>
-                        {debt.map((d, idx) => {
-                          const col = DEBT_COLORS[idx % DEBT_COLORS.length];
-                          return (
-                            <linearGradient key={d.name} id={`grad-debt-${idx}`} x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="0%" stopColor={col} stopOpacity={0.15} />
-                              <stop offset="100%" stopColor={col} stopOpacity={0} />
-                            </linearGradient>
-                          );
-                        })}
-                      </defs>
-                      {debt.map((d, idx) => (
-                        <Area key={d.name} type="monotone" dataKey={d.name}
-                          stroke={DEBT_COLORS[idx % DEBT_COLORS.length]} strokeWidth={2}
-                          fill={`url(#grad-debt-${idx})`}
-                          dot={false} animationDuration={1000 + idx * 200} animationEasing="ease-out" />
-                      ))}
-                    </AreaChart>
-                  </ChartContainer>
+                  <div style={{ height: '400px', width: '100%' }}>
+                    <ChartContainer config={debtChartConfig} className="h-full w-full">
+                      <AreaChart data={chartData} margin={{ top: 16, right: 16, left: 8, bottom: 0 }}>
+                        <CartesianGrid stroke={isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.05)'} vertical={false} />
+                        <XAxis dataKey="month"
+                          tick={{ fontSize: 9, fill: txt.muted }} axisLine={false} tickLine={false}
+                          interval="preserveStartEnd" />
+                        <YAxis
+                          tick={{ fontSize: 9, fill: txt.muted }} axisLine={false} tickLine={false}
+                          tickFormatter={v => v >= 1000 ? `R${Math.round(v / 1000)}k` : `R${v}`}
+                          width={44} />
+                        <ChartTooltip cursor={{ stroke: 'rgba(75,158,255,0.15)', strokeWidth: 1, strokeDasharray: '4 4' }}
+                          content={<ChartTooltipContent formatter={(v) => fmtFull(Number(v))} />} />
+                        <defs>
+                          {debt.map((d, idx) => {
+                            const col = DEBT_COLORS[idx % DEBT_COLORS.length];
+                            return (
+                              <linearGradient key={d.name} id={`grad-debt-${idx}`} x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="0%" stopColor={col} stopOpacity={0.2} />
+                                <stop offset="100%" stopColor={col} stopOpacity={0} />
+                              </linearGradient>
+                            );
+                          })}
+                        </defs>
+                        {debt.map((d, idx) => (
+                          <Area key={d.name} type="monotone" dataKey={d.name}
+                            stroke={DEBT_COLORS[idx % DEBT_COLORS.length]} strokeWidth={2.5}
+                            fill={`url(#grad-debt-${idx})`}
+                            dot={false} animationDuration={1000 + idx * 200} animationEasing="ease-out" />
+                        ))}
+                      </AreaChart>
+                    </ChartContainer>
+                  </div>
                 );
               })()}
               <div className="flex flex-wrap gap-x-4 gap-y-1.5 mt-3">
@@ -1375,7 +1377,7 @@ export default function Finances() {
             <div className="px-5 py-4" style={{ borderBottom: `1px solid ${txt.divider}` }}>
               <p className="text-sm font-semibold" style={{ color: txt.head }}>Debt Attack Scenarios</p>
               <p className="text-[11px] mt-0.5" style={{ color: txt.muted }}>
-                {fmtFull(totalDebt)} total debt at 22% p.a. Snowball method — lowest balance first.
+                {fmtFull(totalDebt)} total debt · snowball method, lowest balance first.
               </p>
             </div>
             <div className="p-5 grid grid-cols-1 sm:grid-cols-3 gap-4">
