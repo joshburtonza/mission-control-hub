@@ -79,7 +79,7 @@ interface Lead {
   created_at: string;
 }
 
-type SortKey = 'quality_score' | 'last_contacted_at' | 'created_at' | 'company' | 'status';
+type SortKey = 'ai_score' | 'quality_score' | 'last_contacted_at' | 'created_at' | 'company' | 'status';
 type SortDir = 'asc' | 'desc';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -673,10 +673,12 @@ function KanbanLeadCard({ lead, logSteps, onSelect }: {
 
 // ── KanbanBoard ───────────────────────────────────────────────────────────────
 
-function KanbanBoard({ leads, logSteps, onSelect }: {
+function KanbanBoard({ leads, logSteps, onSelect, sortKey, sortDir }: {
   leads: Lead[];
   logSteps: Record<string, number[]>;
   onSelect: (lead: Lead) => void;
+  sortKey: SortKey;
+  sortDir: SortDir;
 }) {
   const byStage = useMemo(() => {
     const m: Record<string, Lead[]> = {};
@@ -685,15 +687,31 @@ function KanbanBoard({ leads, logSteps, onSelect }: {
       if (m[l.status] !== undefined) m[l.status].push(l);
       else m['new'].push(l);
     }
-    // Sort each column: replied first, then by created_at desc
+    const mul = sortDir === 'desc' ? -1 : 1;
     for (const key of Object.keys(m)) {
       m[key].sort((a, b) => {
+        // Replied leads always float to top regardless of sort
         if (!!a.reply_received_at !== !!b.reply_received_at) return a.reply_received_at ? -1 : 1;
+        if (sortKey === 'ai_score') {
+          return mul * ((b.ai_score ?? -1) - (a.ai_score ?? -1));
+        }
+        if (sortKey === 'quality_score') {
+          return mul * ((b.quality_score ?? 0) - (a.quality_score ?? 0));
+        }
+        if (sortKey === 'last_contacted_at') {
+          const ta = a.last_contacted_at ? new Date(a.last_contacted_at).getTime() : 0;
+          const tb = b.last_contacted_at ? new Date(b.last_contacted_at).getTime() : 0;
+          return mul * (tb - ta);
+        }
+        if (sortKey === 'company') {
+          return mul * (a.company || '').localeCompare(b.company || '');
+        }
+        // default: created_at desc
         return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
       });
     }
     return m;
-  }, [leads]);
+  }, [leads, sortKey, sortDir]);
 
   return (
     <div className="flex gap-3 overflow-x-auto pb-4" style={{ minHeight: '500px' }}>
@@ -1927,7 +1945,7 @@ export default function CRMPage() {
   const [showAddModal, setShowAddModal]     = useState(false);
   const [selectedLead, setSelectedLead]     = useState<Lead | null>(null);
   const [visibleCount, setVisibleCount]     = useState(50);
-  const [sortKey, setSortKey]               = useState<SortKey>('created_at');
+  const [sortKey, setSortKey]               = useState<SortKey>('ai_score');
   const [sortDir, setSortDir]               = useState<SortDir>('desc');
   const [deletingInvalid, setDeletingInvalid] = useState(false);
 
@@ -2183,7 +2201,31 @@ export default function CRMPage() {
                 {SOURCE_LABELS[src!] || src}
               </button>
             ))}
-            <span className="text-[10px] ml-auto" style={{ color: 'var(--tc-25)' }}>
+            {/* Sort buttons */}
+            <div className="flex items-center gap-1 ml-auto">
+              <span className="text-[9px] uppercase tracking-widest mr-1" style={{ color: 'var(--tc-25)' }}>Sort</span>
+              {([
+                { label: 'AI Score', key: 'ai_score' as SortKey },
+                { label: 'Last Touch', key: 'last_contacted_at' as SortKey },
+                { label: 'Recent', key: 'created_at' as SortKey },
+              ]).map(({ label, key }) => {
+                const active = sortKey === key;
+                return (
+                  <button
+                    key={key}
+                    onClick={() => handleSort(key)}
+                    className="text-[10px] font-medium px-2.5 py-1 rounded-full transition-all flex items-center gap-1"
+                    style={active
+                      ? { background: `${B}18`, border: `1px solid ${B}40`, color: B }
+                      : { background: 'var(--s-hover)', border: '1px solid var(--s-pill-b)', color: 'var(--tc-35)' }}
+                  >
+                    {label}
+                    {active && <span>{sortDir === 'desc' ? '↓' : '↑'}</span>}
+                  </button>
+                );
+              })}
+            </div>
+            <span className="text-[10px]" style={{ color: 'var(--tc-25)' }}>
               {filteredLeads.length} leads
             </span>
           </div>
@@ -2195,7 +2237,7 @@ export default function CRMPage() {
               <span className="text-xs">Loading…</span>
             </div>
           ) : (
-            <KanbanBoard leads={filteredLeads} logSteps={logSteps} onSelect={setSelectedLead} />
+            <KanbanBoard leads={filteredLeads} logSteps={logSteps} onSelect={setSelectedLead} sortKey={sortKey} sortDir={sortDir} />
           )}
         </div>
       )}
