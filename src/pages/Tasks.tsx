@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import TetrisLoading from '@/components/ui/tetris-loader';
 import { Plus, X, RefreshCw, CheckCircle2, XCircle, Clock, Loader2, ChevronDown, ChevronUp, Tag, Send } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -716,8 +717,7 @@ export default function Tasks() {
       {/* ── Task list ── */}
       {loading ? (
         <div className="flex justify-center py-16">
-          <div className="h-5 w-5 rounded-full border-2 animate-spin"
-            style={{ borderColor: B, borderTopColor: 'transparent' }} />
+          <TetrisLoading size="sm" speed="fast" showLoadingText={false} />
         </div>
       ) : filtered.length === 0 ? (
         <div style={card} className="p-12 text-center">

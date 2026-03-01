@@ -1,5 +1,6 @@
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import TetrisLoading from "@/components/ui/tetris-loader";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
@@ -34,7 +35,7 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--s-bg)' }}>
-        <div className="w-6 h-6 rounded-full border-2 border-[#4B9EFF] border-t-transparent animate-spin" />
+        <TetrisLoading size="sm" speed="fast" showLoadingText={false} />
       </div>
     );
   }

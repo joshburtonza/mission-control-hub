@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import TetrisLoading from "@/components/ui/tetris-loader";
 import { ActivityFeed } from "@/components/dashboard/ActivityFeed";
 import { EmailQueue } from "@/components/EmailQueue";
 import { KillSwitch } from "@/components/KillSwitch";
@@ -81,8 +82,9 @@ export default function Index() {
           Agents — {online} online
         </p>
         {loading ? (
-          <div className="h-5 w-5 rounded-full border-2 animate-spin mx-auto"
-            style={{ borderColor: B, borderTopColor: 'transparent' }} />
+          <div className="flex justify-center py-4">
+            <TetrisLoading size="sm" speed="fast" showLoadingText={false} />
+          </div>
         ) : agents.length === 0 ? (
           <div style={card} className="p-10 text-center text-sm text-white/20">
             No agents configured

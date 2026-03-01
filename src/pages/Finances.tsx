@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useTheme } from 'next-themes';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import TetrisLoading from '@/components/ui/tetris-loader';
 import {
   AreaChart, Area, BarChart, Bar,
   XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
@@ -571,8 +572,7 @@ export default function Finances() {
 
   if (loading) return (
     <div className="flex items-center justify-center h-64">
-      <div className="h-5 w-5 rounded-full border-2 animate-spin"
-        style={{ borderColor: B1, borderTopColor: 'transparent' }} />
+      <TetrisLoading size="sm" speed="fast" showLoadingText={false} />
     </div>
   );
 
