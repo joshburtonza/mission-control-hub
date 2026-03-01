@@ -1,11 +1,16 @@
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useTheme } from 'next-themes';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import TetrisLoading from '@/components/ui/tetris-loader';
+import { MiniChart } from '@/components/ui/mini-chart';
+import {
+  ChartContainer, ChartTooltip, ChartTooltipContent, HatchedPattern,
+  type ChartConfig,
+} from '@/components/ui/area-chart';
 import {
   AreaChart, Area, BarChart, Bar,
-  XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
+  XAxis, YAxis, CartesianGrid,
 } from 'recharts';
 import { TrendingUp, TrendingDown, Plus, X, RefreshCw, Edit2, Check, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -642,41 +647,25 @@ export default function Finances() {
             </button>
           </div>
 
-          <div className="rounded-xl overflow-hidden" style={dotGrid}>
+          <div className="rounded-xl overflow-hidden pt-2">
             {lineData.length === 0 ? (
               <div className="h-52 flex items-center justify-center text-sm" style={{ color: txt.muted }}>
                 No data yet
               </div>
-            ) : (
-              <ResponsiveContainer width="100%" height={210}>
-                <AreaChart data={lineData} margin={{ top: 16, right: 16, left: -28, bottom: 0 }}>
-                  <defs>
-                    {[0, 1, 2, 3].map(i => (
-                      <linearGradient key={i} id={`lg${i}`} x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#4B9EFF" stopOpacity={isDark ? Math.max(0.06, 0.35 - i * 0.08) : Math.max(0.04, 0.25 - i * 0.06)} />
-                        <stop offset="100%" stopColor="#4B9EFF" stopOpacity={0} />
-                      </linearGradient>
-                    ))}
-                  </defs>
-                  <CartesianGrid stroke={txt.chartGrid} vertical={false} />
-                  <XAxis dataKey="month" tick={{ fontSize: 10, fill: txt.chartAxis }} axisLine={false} tickLine={false} />
-                  <YAxis hide />
-                  <Tooltip content={<Tip isDark={isDark} />} cursor={{ stroke: 'rgba(75,158,255,0.2)', strokeWidth: 1, strokeDasharray: '4 4' }} />
-                  {clients.map((c, i) => {
-                    const key = c.split(' ')[0];
-                    return (
-                      <Area key={c} type="monotone" dataKey={key}
-                        stroke={lineColors[i] || B3} strokeWidth={i === 0 ? 2.5 : 1.5}
-                        fill={`url(#lg${i})`}
-                        dot={false}
-                        activeDot={{ r: 4, fill: lineColors[i] || B3, strokeWidth: 0 }}
-                        animationDuration={1200 + i * 200} animationEasing="ease-out"
-                      />
-                    );
-                  })}
-                </AreaChart>
-              </ResponsiveContainer>
-            )}
+            ) : (() => {
+              const revenueBarData = lineData.map(d => ({
+                label: String(d.month).slice(-3),
+                value: clients.reduce((s, c) => s + (Number(d[c.split(' ')[0]]) || 0), 0),
+              }));
+              return (
+                <MiniChart
+                  data={revenueBarData}
+                  height={150}
+                  color={B1}
+                  formatter={v => fmtFull(v)}
+                />
+              );
+            })()}
           </div>
 
           <div className="flex gap-8 mt-5 pb-1">
@@ -769,40 +758,19 @@ export default function Finances() {
         </div>
       </div>
 
-      {/* ══ Row 2: Bar chart ══ */}
+      {/* ══ Row 2: Monthly breakdown ══ */}
       <div className="p-6" style={card}>
         <p className="text-[10px] uppercase tracking-widest mb-5" style={{ color: txt.label }}>Monthly Breakdown</p>
-        <div className="rounded-xl overflow-hidden" style={dotGrid}>
+        <div className="pt-2">
           {barData.length === 0 ? (
             <div className="h-44 flex items-center justify-center text-sm" style={{ color: txt.muted }}>No data</div>
           ) : (
-            <ResponsiveContainer width="100%" height={180}>
-              <BarChart data={barData} margin={{ top: 8, right: 8, left: -28, bottom: 0 }} barGap={3} barCategoryGap="28%">
-                <defs>
-                  <linearGradient id="bg1" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%"   stopColor={B1} stopOpacity={1} />
-                    <stop offset="100%" stopColor={B1} stopOpacity={0.3} />
-                  </linearGradient>
-                  <linearGradient id="bg2" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%"   stopColor={B1} stopOpacity={0.3} />
-                    <stop offset="100%" stopColor={B1} stopOpacity={0.04} />
-                  </linearGradient>
-                  <filter id="barshadow">
-                    <feDropShadow dx="0" dy="-4" stdDeviation="6" floodColor={B1} floodOpacity={isDark ? '0.5' : '0.3'} />
-                  </filter>
-                </defs>
-                <CartesianGrid stroke={txt.chartGrid} vertical={false} />
-                <XAxis dataKey="month" tick={{ fontSize: 10, fill: txt.chartAxis }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 10, fill: txt.chartAxis }} axisLine={false} tickLine={false}
-                  tickFormatter={v => v >= 1000 ? `${Math.round(v / 1000)}k` : String(v)} />
-                <Tooltip content={<Tip isDark={isDark} />} cursor={{ fill: isDark ? 'rgba(75,158,255,0.04)' : 'rgba(75,158,255,0.06)' }} />
-                <Bar dataKey="collected"   name="collected"   fill="url(#bg1)" radius={[5, 5, 1, 1]}
-                  animationDuration={1000} animationEasing="ease-out"
-                  style={{ filter: 'url(#barshadow)' }} />
-                <Bar dataKey="outstanding" name="outstanding" fill="url(#bg2)" radius={[5, 5, 1, 1]}
-                  animationDuration={1200} animationEasing="ease-out" />
-              </BarChart>
-            </ResponsiveContainer>
+            <MiniChart
+              data={barData.map(d => ({ label: String(d.month).slice(-3), value: Number(d.collected) || 0 }))}
+              height={140}
+              color={B1}
+              formatter={v => fmtFull(v)}
+            />
           )}
         </div>
         <div className="flex gap-5 mt-3">
@@ -1269,7 +1237,7 @@ export default function Finances() {
               })}
             </div>
 
-            {/* Part B — Stacked area chart */}
+            {/* Part B — Debt projection chart */}
             <div className="p-5" style={card}>
               <div className="mb-4">
                 <p className="text-sm font-semibold" style={{ color: txt.head }}>Debt Paydown Projection</p>
@@ -1277,67 +1245,44 @@ export default function Finances() {
                   Snowball method — all surplus attacks lowest balance first
                 </p>
               </div>
-              <ResponsiveContainer width="100%" height={220}>
-                <AreaChart data={chartData} margin={{ top: 8, right: 8, left: -8, bottom: 0 }}>
-                  <CartesianGrid stroke={isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.05)'} vertical={false} />
-                  <XAxis
-                    dataKey="month"
-                    tick={{ fontSize: 9, fill: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.35)' }}
-                    axisLine={false}
-                    tickLine={false}
-                    interval="preserveStartEnd"
-                  />
-                  <YAxis
-                    tick={{ fontSize: 9, fill: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.35)' }}
-                    axisLine={false}
-                    tickLine={false}
-                    tickFormatter={(v: number) => {
-                      if (v >= 1_000_000) return 'R' + (v / 1_000_000).toFixed(1) + 'M';
-                      if (v >= 1_000) return 'R' + Math.round(v / 1000) + 'k';
-                      return 'R' + v;
-                    }}
-                  />
-                  <Tooltip
-                    content={({ active, payload, label }: any) => {
-                      if (!active || !payload?.length) return null;
-                      return (
-                        <div className="rounded-xl px-3.5 py-2.5" style={{
-                          background: isDark ? '#111827' : '#ffffff',
-                          border: `1px solid ${isDark ? 'rgba(75,158,255,0.2)' : 'rgba(75,158,255,0.3)'}`,
-                          boxShadow: `0 4px 20px ${isDark ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.12)'}`,
-                        }}>
-                          <p className="text-[9px] uppercase tracking-widest mb-1.5"
-                            style={{ color: isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.4)' }}>{label}</p>
-                          {[...payload].reverse().map((p: any, i: number) => (
-                            <div key={p.name + i} className="flex items-center gap-2 text-[11px]">
-                              <div className="h-[3px] w-3 rounded-full" style={{ background: p.fill }} />
-                              <span className="truncate max-w-[100px]" style={{ color: isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.5)' }}>{p.name}</span>
-                              <span className="font-semibold ml-auto pl-2" style={{ color: isDark ? '#fff' : '#111' }}>{fmtFull(p.value)}</span>
-                            </div>
-                          ))}
-                        </div>
-                      );
-                    }}
-                    cursor={{ stroke: 'rgba(75,158,255,0.15)', strokeWidth: 1, strokeDasharray: '4 4' }}
-                  />
-                  {debt.map((d, idx) => (
-                    <Area
-                      key={d.name}
-                      type="monotone"
-                      dataKey={d.name}
-                      stackId="debt"
-                      stroke={DEBT_COLORS[idx % DEBT_COLORS.length]}
-                      fill={DEBT_COLORS[idx % DEBT_COLORS.length]}
-                      fillOpacity={isDark ? 0.55 : 0.45}
-                      strokeWidth={1.5}
-                      dot={false}
-                      animationDuration={1200 + idx * 150}
-                      animationEasing="ease-out"
-                    />
-                  ))}
-                </AreaChart>
-              </ResponsiveContainer>
-              {/* Legend */}
+              {(() => {
+                const debtChartConfig = debt.reduce((acc, d, idx) => {
+                  acc[d.name] = { label: d.name, color: DEBT_COLORS[idx % DEBT_COLORS.length] };
+                  return acc;
+                }, {} as ChartConfig);
+                return (
+                  <ChartContainer config={debtChartConfig} className="h-[200px]">
+                    <AreaChart data={chartData} margin={{ top: 8, right: 8, left: -8, bottom: 0 }}>
+                      <CartesianGrid stroke={isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.05)'} vertical={false} />
+                      <XAxis dataKey="month"
+                        tick={{ fontSize: 9, fill: txt.chartAxis }} axisLine={false} tickLine={false}
+                        interval="preserveStartEnd" />
+                      <ChartTooltip cursor={{ stroke: 'rgba(75,158,255,0.15)', strokeWidth: 1, strokeDasharray: '4 4' }}
+                        content={<ChartTooltipContent formatter={(v) => fmtFull(Number(v))} />} />
+                      <defs>
+                        {debt.map((d, idx) => {
+                          const col = DEBT_COLORS[idx % DEBT_COLORS.length];
+                          return (
+                            <React.Fragment key={d.name}>
+                              <HatchedPattern id={`hatch-${idx}`} color={col} animated={false} />
+                              <linearGradient id={`grad-debt-${idx}`} x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor={col} stopOpacity={0.4} />
+                                <stop offset="95%" stopColor={col} stopOpacity={0} />
+                              </linearGradient>
+                            </React.Fragment>
+                          );
+                        })}
+                      </defs>
+                      {debt.map((d, idx) => (
+                        <Area key={d.name} type="natural" dataKey={d.name} stackId="debt"
+                          stroke={DEBT_COLORS[idx % DEBT_COLORS.length]} strokeWidth={0.8}
+                          fill={`url(#grad-debt-${idx})`} fillOpacity={0.4}
+                          dot={false} animationDuration={1200 + idx * 150} animationEasing="ease-out" />
+                      ))}
+                    </AreaChart>
+                  </ChartContainer>
+                );
+              })()}
               <div className="flex flex-wrap gap-x-4 gap-y-1.5 mt-3">
                 {debt.map((d, idx) => (
                   <div key={d.name} className="flex items-center gap-1.5">
