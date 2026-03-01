@@ -468,8 +468,15 @@ function KanbanLeadCard({ lead, logSteps, onSelect }: {
   const steps      = logSteps[lead.id] || [];
   const hasReply   = !!lead.reply_received_at;
   const contacted  = !!lead.last_contacted_at;
-  const loc        = locationStr(lead);
-  const flag       = countryFlag(lead.location_country);
+  // Use notes-blob fallback for pre-migration leads
+  const nb         = parseNotes(lead.notes);
+  const effTitle   = lead.title          || nb.title;
+  const effIndustry = lead.industry      || nb.industry;
+  const effEmpCount = lead.employee_count != null ? lead.employee_count : nb.employee_count;
+  const effLinkedin = lead.linkedin_url  || nb.linkedin_url;
+  const effLoc      = locationStr(lead)  || nb.location;
+  const effCountry  = lead.location_country || (nb.location?.split(', ').pop() ?? null);
+  const flag        = countryFlag(effCountry);
 
   return (
     <div
@@ -499,48 +506,48 @@ function KanbanLeadCard({ lead, logSteps, onSelect }: {
               <span className="text-[12px] font-semibold truncate" style={{ color: 'var(--tc-88)' }}>{fullName(lead)}</span>
               {lead.quality_score > 0 && <ScoreBadge score={lead.quality_score} />}
             </div>
-            {lead.title && (
-              <p className="text-[10px] truncate" style={{ color: 'var(--tc-40)' }}>{lead.title}</p>
+            {effTitle && (
+              <p className="text-[10px] truncate" style={{ color: 'var(--tc-40)' }}>{effTitle}</p>
             )}
           </div>
         </div>
 
         {/* Company + size */}
-        {(lead.company || lead.employee_count != null) && (
+        {(lead.company || effEmpCount != null) && (
           <div className="flex items-center gap-1.5 text-[10px]" style={{ color: 'var(--tc-50)' }}>
             <Briefcase className="h-3 w-3 shrink-0" style={{ color: 'var(--tc-25)' }} />
             <span className="truncate font-medium">{lead.company}</span>
-            {lead.employee_count != null && (
-              <span className="shrink-0" style={{ color: 'var(--tc-30)' }}>· {empLabel(lead.employee_count)}</span>
+            {effEmpCount != null && (
+              <span className="shrink-0" style={{ color: 'var(--tc-30)' }}>· {empLabel(effEmpCount)}</span>
             )}
           </div>
         )}
 
         {/* Industry */}
-        {lead.industry && (
+        {effIndustry && (
           <span
             className="text-[9px] px-1.5 py-0.5 rounded-full inline-block max-w-full truncate"
             style={{ background: `${B}10`, color: `${B}99`, border: `1px solid ${B}20` }}
           >
-            {lead.industry}
+            {effIndustry}
           </span>
         )}
 
         {/* Location */}
-        {loc && (
+        {effLoc && (
           <div className="flex items-center gap-1 text-[10px]" style={{ color: 'var(--tc-35)' }}>
             <MapPin className="h-2.5 w-2.5 shrink-0" style={{ color: 'var(--tc-20)' }} />
             {flag && <span>{flag}</span>}
-            <span className="truncate">{loc}</span>
+            <span className="truncate">{effLoc}</span>
           </div>
         )}
 
         {/* LinkedIn + Website */}
-        {(lead.linkedin_url || lead.website) && (
+        {(effLinkedin || lead.website) && (
           <div className="flex items-center gap-1.5 flex-wrap" onClick={e => e.stopPropagation()}>
-            {lead.linkedin_url && (
+            {effLinkedin && (
               <a
-                href={lead.linkedin_url}
+                href={effLinkedin}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded-full font-medium"
@@ -1140,6 +1147,11 @@ function LeadDetailSheet({
               <EmailStatusDot status={lead.email_status} />
             </div>
             <div className="grid grid-cols-2 gap-2 text-[11px]">
+              {lead.source && (
+                <div style={{ color: 'var(--tc-35)' }}>
+                  Source: <span style={{ color: 'var(--tc-55)' }}>{SOURCE_LABELS[lead.source] || lead.source}</span>
+                </div>
+              )}
               {lead.last_contacted_at && (
                 <div style={{ color: 'var(--tc-35)' }}>
                   Last contact: <span style={{ color: 'var(--tc-60)' }}>{timeSince(lead.last_contacted_at)}</span>
