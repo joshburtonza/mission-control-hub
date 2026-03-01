@@ -5,7 +5,7 @@ import {
   Mail, Globe, Tag, TrendingUp, Users, MessageSquare, Star,
   Send, Clock, CheckCheck, CalendarCheck, Trash2, Linkedin,
   MapPin, Briefcase, BarChart2, ChevronDown, ArrowUpDown,
-  ArrowUp, ArrowDown, Filter,
+  ArrowUp, ArrowDown, Filter, Sparkles, AlertTriangle, Zap,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -28,6 +28,15 @@ interface OutreachLog {
   gmail_message_id: string | null;
 }
 
+interface AIAnalysis {
+  score: number;
+  headline: string;
+  fit_summary: string;
+  opportunities: string[];
+  risks: string[];
+  next_action: string;
+}
+
 interface Lead {
   id: string;
   client_id: string | null;
@@ -46,6 +55,9 @@ interface Lead {
   quality_score: number;
   enriched_at: string | null;
   linkedin_status: string | null;
+  ai_analysis: AIAnalysis | null;
+  ai_score: number | null;
+  ai_analysed_at: string | null;
   source: string | null;
   status: string;
   email_status: string | null;
@@ -504,7 +516,12 @@ function KanbanLeadCard({ lead, logSteps, onSelect }: {
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between gap-1">
               <span className="text-[12px] font-semibold truncate" style={{ color: 'var(--tc-88)' }}>{fullName(lead)}</span>
-              {lead.quality_score > 0 && <ScoreBadge score={lead.quality_score} />}
+              {lead.ai_score != null
+                ? <ScoreBadge score={lead.ai_score} />
+                : lead.quality_score > 0
+                  ? <ScoreBadge score={lead.quality_score} />
+                  : null
+              }
             </div>
             {effTitle && (
               <p className="text-[10px] truncate" style={{ color: 'var(--tc-40)' }}>{effTitle}</p>
@@ -929,11 +946,21 @@ function LeadDetailSheet({
   const [notes, setNotes] = useState(lead.notes || '');
   const [notesSaving, setNotesSaving] = useState(false);
   const [visible, setVisible] = useState(false);
+  const [analysisQueued, setAnalysisQueued] = useState(false);
+  const notesRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     // Animate in
     requestAnimationFrame(() => setVisible(true));
   }, []);
+
+  // Auto-resize notes textarea to fit content
+  useEffect(() => {
+    const el = notesRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = el.scrollHeight + 'px';
+  }, [notes]);
 
   const handleClose = () => {
     setVisible(false);
@@ -987,6 +1014,22 @@ function LeadDetailSheet({
     await (supabase as any).from('leads').update({ notes }).eq('id', lead.id);
     setNotesSaving(false);
     toast.success('Notes saved');
+  };
+
+  const handleQueueAnalysis = async () => {
+    try {
+      const { error } = await (supabase as any).from('task_queue').insert({
+        task_type: 'analyse_crm_lead',
+        status: 'pending',
+        agent: 'alex',
+        payload: { lead_id: lead.id },
+      });
+      if (error) throw error;
+      setAnalysisQueued(true);
+      toast.success('Analysis queued — run analyse-leads.sh to process');
+    } catch (e: any) {
+      toast.error('Queue failed: ' + (e?.message || 'unknown'));
+    }
   };
 
   const nextStatuses = PIPELINE_STAGES.map(s => s.key).filter(s => s !== lead.status);
@@ -1299,16 +1342,124 @@ function LeadDetailSheet({
             )}
           </div>
 
+          {/* AI Analysis */}
+          <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--s-card-b)' }}>
+            {/* Header */}
+            <div className="flex items-center justify-between px-3 py-2.5" style={{ background: 'var(--s-hover)', borderBottom: '1px solid var(--s-card-b)' }}>
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-3.5 w-3.5" style={{ color: '#a78bfa' }} />
+                <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--tc-55)' }}>AI Analysis</span>
+                {lead.ai_score != null && (
+                  <span
+                    className="text-[10px] font-bold px-2 py-0.5 rounded-full tabular-nums"
+                    style={{
+                      background: lead.ai_score >= 70 ? '#4ade8018' : lead.ai_score >= 50 ? `${B}18` : lead.ai_score >= 30 ? '#facc1518' : '#f8717118',
+                      color:      lead.ai_score >= 70 ? '#4ade80'   : lead.ai_score >= 50 ? B            : lead.ai_score >= 30 ? '#facc15'   : '#f87171',
+                      border:     `1px solid ${lead.ai_score >= 70 ? '#4ade8040' : lead.ai_score >= 50 ? `${B}40` : lead.ai_score >= 30 ? '#facc1540' : '#f8717140'}`,
+                    }}
+                  >
+                    {lead.ai_score}/100
+                  </span>
+                )}
+              </div>
+              {!analysisQueued && (
+                <button
+                  onClick={handleQueueAnalysis}
+                  className="flex items-center gap-1.5 text-[10px] px-2.5 py-1 rounded-full font-semibold transition-all"
+                  style={{ background: '#a78bfa18', color: '#a78bfa', border: '1px solid #a78bfa35' }}
+                >
+                  <Zap className="h-2.5 w-2.5" />
+                  {lead.ai_analysed_at ? 'Re-analyse' : 'Analyse'}
+                </button>
+              )}
+              {analysisQueued && (
+                <span className="text-[10px]" style={{ color: '#a78bfa99' }}>Queued ✓</span>
+              )}
+            </div>
+
+            {/* Body */}
+            <div className="p-3 space-y-3">
+              {lead.ai_analysis ? (
+                <>
+                  {/* Headline */}
+                  <p className="text-[12px] font-semibold leading-snug" style={{ color: 'var(--tc-80)' }}>
+                    {lead.ai_analysis.headline}
+                  </p>
+
+                  {/* Fit summary */}
+                  <p className="text-[11px] leading-relaxed" style={{ color: 'var(--tc-55)' }}>
+                    {lead.ai_analysis.fit_summary}
+                  </p>
+
+                  {/* Opportunities */}
+                  {lead.ai_analysis.opportunities?.length > 0 && (
+                    <div>
+                      <p className="text-[9px] uppercase tracking-widest mb-1.5" style={{ color: 'var(--tc-30)' }}>Opportunities</p>
+                      <ul className="space-y-1">
+                        {lead.ai_analysis.opportunities.map((op, i) => (
+                          <li key={i} className="flex items-start gap-1.5 text-[11px]" style={{ color: 'var(--tc-60)' }}>
+                            <span className="mt-0.5 shrink-0" style={{ color: '#4ade80' }}>→</span>
+                            {op}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {/* Risks */}
+                  {lead.ai_analysis.risks?.length > 0 && (
+                    <div>
+                      <p className="text-[9px] uppercase tracking-widest mb-1.5" style={{ color: 'var(--tc-30)' }}>Watch-outs</p>
+                      <ul className="space-y-1">
+                        {lead.ai_analysis.risks.map((r, i) => (
+                          <li key={i} className="flex items-start gap-1.5 text-[11px]" style={{ color: 'var(--tc-45)' }}>
+                            <AlertTriangle className="h-3 w-3 mt-0.5 shrink-0" style={{ color: '#facc15' }} />
+                            {r}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {/* Next action */}
+                  {lead.ai_analysis.next_action && (
+                    <div className="rounded-xl px-3 py-2.5" style={{ background: '#a78bfa0d', border: '1px solid #a78bfa25' }}>
+                      <p className="text-[9px] uppercase tracking-widest mb-1" style={{ color: '#a78bfa80' }}>Recommended angle</p>
+                      <p className="text-[11px] font-medium" style={{ color: 'var(--tc-70)' }}>
+                        {lead.ai_analysis.next_action}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Timestamp */}
+                  {lead.ai_analysed_at && (
+                    <p className="text-[9px]" style={{ color: 'var(--tc-20)' }}>
+                      Analysed {timeSince(lead.ai_analysed_at)}
+                    </p>
+                  )}
+                </>
+              ) : (
+                <div className="flex flex-col items-center gap-2 py-3 text-center">
+                  <Sparkles className="h-5 w-5" style={{ color: 'var(--tc-15)' }} />
+                  <p className="text-[11px]" style={{ color: 'var(--tc-25)' }}>No analysis yet</p>
+                  <p className="text-[10px]" style={{ color: 'var(--tc-18)' }}>
+                    Click Analyse → then run analyse-leads.sh
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+
           {/* Notes */}
           <div>
             <p className="text-[9px] uppercase tracking-widest mb-2" style={{ color: 'var(--tc-30)' }}>Notes</p>
             <textarea
+              ref={notesRef}
               value={notes}
               onChange={e => setNotes(e.target.value)}
-              rows={3}
               placeholder="Add notes..."
-              className="w-full px-3 py-2.5 rounded-xl text-xs focus:outline-none resize-none"
-              style={inputStyle}
+              className="w-full px-3 py-2.5 rounded-xl text-xs focus:outline-none resize-none overflow-hidden"
+              style={{ ...inputStyle, minHeight: '72px' }}
             />
             {notes !== (lead.notes || '') && (
               <button
