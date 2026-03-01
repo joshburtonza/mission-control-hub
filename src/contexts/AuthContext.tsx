@@ -28,9 +28,13 @@ async function fetchMCUser(email: string): Promise<MCUser | null> {
       .select('*')
       .eq('email', email)
       .single();
-    if (error) return null;
+    if (error) {
+      console.warn('[fetchMCUser] error for', email, error.code, error.message);
+      return null;
+    }
     return data as MCUser | null;
-  } catch {
+  } catch (e) {
+    console.warn('[fetchMCUser] exception for', email, e);
     return null;
   }
 }
