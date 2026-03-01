@@ -793,11 +793,11 @@ export default function Finances() {
         const incExpData = months.map(m => ({
           month: fmtMonthLabel(m),
           income:   entries.filter(e => e.month === m && e.status === 'paid').reduce((s, e) => s + e.amount, 0),
-          expenses: totalBizSubs,
+          expenses: totalOutflow,
         }));
         const incExpConfig: ChartConfig = {
           income:   { label: 'Revenue',        color: B1 },
-          expenses: { label: 'Business Costs', color: '#F87171' },
+          expenses: { label: 'Costs (Subs + Drawings)', color: '#F87171' },
         };
         return (
           <div className="p-6" style={card}>
@@ -834,7 +834,7 @@ export default function Finances() {
               </ChartContainer>
             )}
             <div className="flex gap-5 mt-3">
-              {([['Revenue', B1], ['Business Costs', '#F87171']] as const).map(([lbl, col]) => (
+              {([['Revenue', B1], ['Costs (Subs + Drawings)', '#F87171']] as const).map(([lbl, col]) => (
                 <div key={lbl} className="flex items-center gap-1.5">
                   <div className="h-[3px] w-4 rounded-full" style={{ background: col }} />
                   <span className="text-[10px]" style={{ color: txt.muted }}>{lbl}</span>
