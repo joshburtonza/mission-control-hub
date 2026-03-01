@@ -786,6 +786,63 @@ export default function Finances() {
         </div>
       </div>
 
+      {/* ══ Row 2b: Revenue vs Business Costs ══ */}
+      {(() => {
+        const incExpData = months.map(m => ({
+          month: m.slice(5),
+          income:   entries.filter(e => e.month === m && e.status === 'paid').reduce((s, e) => s + e.amount, 0),
+          expenses: totalBizSubs,
+        }));
+        const incExpConfig: ChartConfig = {
+          income:   { label: 'Revenue',        color: B1 },
+          expenses: { label: 'Business Costs', color: '#F87171' },
+        };
+        return (
+          <div className="p-6" style={card}>
+            <p className="text-[10px] uppercase tracking-widest mb-5" style={{ color: txt.label }}>Revenue vs Business Costs</p>
+            {incExpData.length === 0 ? (
+              <div className="h-44 flex items-center justify-center text-sm" style={{ color: txt.muted }}>No data</div>
+            ) : (
+              <ChartContainer config={incExpConfig} className="h-[160px] w-full">
+                <AreaChart data={incExpData} margin={{ top: 8, right: 0, left: 0, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="grad-inc" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%"  stopColor={B1}       stopOpacity={0.18} />
+                      <stop offset="95%" stopColor={B1}       stopOpacity={0.03} />
+                    </linearGradient>
+                    <linearGradient id="grad-exp" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%"  stopColor="#F87171" stopOpacity={0.14} />
+                      <stop offset="95%" stopColor="#F87171" stopOpacity={0.03} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke={txt.divider} vertical={false} />
+                  <XAxis dataKey="month" tick={{ fontSize: 10, fill: txt.muted }} axisLine={false} tickLine={false} />
+                  <ChartTooltip content={
+                    <ChartTooltipContent
+                      formatter={(v, _n) => (
+                        <span className="font-mono font-semibold">{fmtFull(v as number)}</span>
+                      )}
+                    />
+                  } />
+                  <Area type="monotone" dataKey="income" stroke={B1} strokeWidth={2}
+                    fill="url(#grad-inc)" dot={false} activeDot={{ r: 3, fill: B1 }} />
+                  <Area type="monotone" dataKey="expenses" stroke="#F87171" strokeWidth={1.5} strokeDasharray="4 3"
+                    fill="url(#grad-exp)" dot={false} activeDot={{ r: 3, fill: '#F87171' }} />
+                </AreaChart>
+              </ChartContainer>
+            )}
+            <div className="flex gap-5 mt-3">
+              {([['Revenue', B1], ['Business Costs', '#F87171']] as const).map(([lbl, col]) => (
+                <div key={lbl} className="flex items-center gap-1.5">
+                  <div className="h-[3px] w-4 rounded-full" style={{ background: col }} />
+                  <span className="text-[10px]" style={{ color: txt.muted }}>{lbl}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
+
       {/* ══ Row 3: Net Position + Sajonix Balance ══ */}
       <div className="grid md:grid-cols-2 gap-4">
 
