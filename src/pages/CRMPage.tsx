@@ -437,22 +437,236 @@ function SortButton({ label, sortKey, current, dir, onClick }: {
   );
 }
 
-// ── LeadTable ─────────────────────────────────────────────────────────────────
+// ── KanbanLeadCard ────────────────────────────────────────────────────────────
 
-function LeadTable({
-  leads,
-  logSteps,
-  onSelect,
-  sortKey,
-  sortDir,
-  onSort,
-}: {
+function KanbanLeadCard({ lead, logSteps, onSelect }: {
+  lead: Lead;
+  logSteps: Record<string, number[]>;
+  onSelect: (lead: Lead) => void;
+}) {
+  const steps      = logSteps[lead.id] || [];
+  const hasReply   = !!lead.reply_received_at;
+  const contacted  = !!lead.last_contacted_at;
+  const loc        = locationStr(lead);
+  const flag       = countryFlag(lead.location_country);
+
+  return (
+    <div
+      className="rounded-xl cursor-pointer transition-all"
+      style={{
+        background: hasReply ? `${B}08` : 'var(--s-card)',
+        backdropFilter: 'blur(20px)',
+        WebkitBackdropFilter: 'blur(20px)',
+        border: `1px solid ${hasReply ? `${B}35` : 'var(--s-card-b)'}`,
+      }}
+      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = `${B}45`; }}
+      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = hasReply ? `${B}35` : 'var(--s-card-b)'; }}
+      onClick={() => onSelect(lead)}
+    >
+      <div className="p-3 space-y-2">
+
+        {/* Name + score */}
+        <div className="flex items-start gap-2">
+          <div
+            className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-[10px] font-bold"
+            style={{ background: `${B}15`, border: `1px solid ${B}30`, color: B }}
+          >
+            {initials(lead)}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center justify-between gap-1">
+              <span className="text-[12px] font-semibold truncate" style={{ color: 'var(--tc-88)' }}>{fullName(lead)}</span>
+              {lead.quality_score > 0 && <ScoreBadge score={lead.quality_score} />}
+            </div>
+            {lead.title && (
+              <p className="text-[10px] truncate" style={{ color: 'var(--tc-40)' }}>{lead.title}</p>
+            )}
+          </div>
+        </div>
+
+        {/* Company + size */}
+        {(lead.company || lead.employee_count != null) && (
+          <div className="flex items-center gap-1.5 text-[10px]" style={{ color: 'var(--tc-50)' }}>
+            <Briefcase className="h-3 w-3 shrink-0" style={{ color: 'var(--tc-25)' }} />
+            <span className="truncate font-medium">{lead.company}</span>
+            {lead.employee_count != null && (
+              <span className="shrink-0" style={{ color: 'var(--tc-30)' }}>· {empLabel(lead.employee_count)}</span>
+            )}
+          </div>
+        )}
+
+        {/* Industry */}
+        {lead.industry && (
+          <span
+            className="text-[9px] px-1.5 py-0.5 rounded-full inline-block max-w-full truncate"
+            style={{ background: `${B}10`, color: `${B}99`, border: `1px solid ${B}20` }}
+          >
+            {lead.industry}
+          </span>
+        )}
+
+        {/* Location */}
+        {loc && (
+          <div className="flex items-center gap-1 text-[10px]" style={{ color: 'var(--tc-35)' }}>
+            <MapPin className="h-2.5 w-2.5 shrink-0" style={{ color: 'var(--tc-20)' }} />
+            {flag && <span>{flag}</span>}
+            <span className="truncate">{loc}</span>
+          </div>
+        )}
+
+        {/* LinkedIn + Website */}
+        {(lead.linkedin_url || lead.website) && (
+          <div className="flex items-center gap-1.5 flex-wrap" onClick={e => e.stopPropagation()}>
+            {lead.linkedin_url && (
+              <a
+                href={lead.linkedin_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded-full font-medium"
+                style={{ background: '#0077B512', color: '#0077B5', border: '1px solid #0077B528' }}
+              >
+                <Linkedin className="h-2.5 w-2.5" />LinkedIn
+              </a>
+            )}
+            {lead.website && (
+              <a
+                href={lead.website}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded-full"
+                style={{ background: 'var(--s-hover)', color: 'var(--tc-40)', border: '1px solid var(--s-pill-b)' }}
+              >
+                <Globe className="h-2.5 w-2.5" />
+                {(() => { try { return new URL(lead.website).hostname.replace('www.', ''); } catch { return 'site'; } })()}
+              </a>
+            )}
+          </div>
+        )}
+
+        {/* Email */}
+        <div className="flex items-center gap-1.5 text-[10px]" style={{ color: 'var(--tc-30)' }}>
+          <Mail className="h-2.5 w-2.5 shrink-0" style={{ color: 'var(--tc-20)' }} />
+          <span className="truncate" style={{ color: 'var(--tc-40)' }}>{lead.email}</span>
+          {lead.email_status === 'valid'      && <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: '#4ade80' }} title="verified" />}
+          {lead.email_status === 'catch_all'  && <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: '#facc15' }} title="catch-all" />}
+          {lead.email_status === 'unverified' && <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: '#94a3b8' }} title="unverified" />}
+          {lead.email_status === 'invalid'    && <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: '#f87171' }} title="invalid" />}
+        </div>
+
+        {/* Footer: contacted status + sequence dots */}
+        <div className="flex items-center justify-between pt-1 border-t" style={{ borderColor: 'var(--s-divider)' }}>
+          <div>
+            {hasReply ? (
+              <span className="text-[9px] font-semibold" style={{ color: '#4ade80' }}>✉ replied {timeSince(lead.reply_received_at)}</span>
+            ) : contacted ? (
+              <span className="text-[9px]" style={{ color: `${B}99` }}>✓ contacted {timeSince(lead.last_contacted_at)}</span>
+            ) : (
+              <span className="text-[9px]" style={{ color: 'var(--tc-20)' }}>not yet contacted</span>
+            )}
+          </div>
+          <div className="flex items-center gap-0.5">
+            {[1, 2, 3].map(s => {
+              const done = steps.includes(s);
+              const meta = STEP_META[s];
+              return (
+                <div
+                  key={s}
+                  className="w-3.5 h-3.5 rounded-full flex items-center justify-center text-[7px] font-bold"
+                  title={`${meta.label}${done ? ' ✓' : ''}`}
+                  style={{
+                    background: done ? `${meta.color}22` : 'var(--s-hover)',
+                    border: `1px solid ${done ? meta.color + '50' : 'var(--s-pill-b)'}`,
+                    color: done ? meta.color : 'var(--tc-15)',
+                  }}
+                >
+                  {done ? '✓' : s}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── KanbanBoard ───────────────────────────────────────────────────────────────
+
+function KanbanBoard({ leads, logSteps, onSelect }: {
   leads: Lead[];
   logSteps: Record<string, number[]>;
   onSelect: (lead: Lead) => void;
-  sortKey: SortKey;
-  sortDir: SortDir;
-  onSort: (k: SortKey) => void;
+}) {
+  const byStage = useMemo(() => {
+    const m: Record<string, Lead[]> = {};
+    for (const s of PIPELINE_STAGES) m[s.key] = [];
+    for (const l of leads) {
+      if (m[l.status] !== undefined) m[l.status].push(l);
+      else m['new'].push(l);
+    }
+    // Sort each column: replied first, then by created_at desc
+    for (const key of Object.keys(m)) {
+      m[key].sort((a, b) => {
+        if (!!a.reply_received_at !== !!b.reply_received_at) return a.reply_received_at ? -1 : 1;
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      });
+    }
+    return m;
+  }, [leads]);
+
+  return (
+    <div className="flex gap-3 overflow-x-auto pb-4" style={{ minHeight: '500px' }}>
+      {PIPELINE_STAGES.map(stage => {
+        const col = byStage[stage.key] || [];
+        return (
+          <div key={stage.key} className="flex flex-col shrink-0" style={{ width: '272px' }}>
+            {/* Column header */}
+            <div
+              className="flex items-center justify-between px-3 py-2 mb-2 rounded-xl sticky top-0"
+              style={{
+                background: stage.active ? `${B}12` : 'var(--s-hover)',
+                border: `1px solid ${stage.active ? `${B}28` : 'var(--s-pill-b)'}`,
+              }}
+            >
+              <span className="text-[11px] font-semibold" style={{ color: stage.active ? B : 'var(--tc-45)' }}>
+                {stage.label}
+              </span>
+              <span
+                className="text-[10px] font-bold px-1.5 py-0.5 rounded-full tabular-nums"
+                style={{ background: stage.active ? `${B}20` : 'var(--s-card)', color: stage.active ? B : 'var(--tc-30)' }}
+              >
+                {col.length}
+              </span>
+            </div>
+
+            {/* Cards */}
+            <div className="flex flex-col gap-2 overflow-y-auto pr-0.5" style={{ maxHeight: 'calc(100vh - 340px)' }}>
+              {col.length === 0 ? (
+                <div
+                  className="text-[10px] text-center py-10"
+                  style={{ color: 'var(--tc-15)', border: '1px dashed var(--s-divider)', borderRadius: '12px' }}
+                >
+                  —
+                </div>
+              ) : (
+                col.map(lead => (
+                  <KanbanLeadCard key={lead.id} lead={lead} logSteps={logSteps} onSelect={onSelect} />
+                ))
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── LeadTable (kept for reference, unused) ────────────────────────────────────
+
+function LeadTable({ leads, logSteps, onSelect }: {
+  leads: Lead[];
+  logSteps: Record<string, number[]>;
+  onSelect: (lead: Lead) => void;
 }) {
   if (leads.length === 0) {
     return (
@@ -1502,7 +1716,7 @@ export default function CRMPage() {
   // ── Filtered + sorted leads (pipeline view) ────────────────────────────────
 
   const filteredLeads = useMemo(() => {
-    let list = activeStage ? clientLeads.filter(l => l.status === activeStage) : clientLeads;
+    let list = clientLeads;
     if (activeSources.size > 0) {
       list = list.filter(l => activeSources.has(l.source || ''));
     }
@@ -1517,23 +1731,8 @@ export default function CRMPage() {
         (l.tags || []).some(t => t.toLowerCase().includes(q))
       );
     }
-    // Sort
-    list = [...list].sort((a, b) => {
-      let av: any, bv: any;
-      if (sortKey === 'quality_score') { av = a.quality_score; bv = b.quality_score; }
-      else if (sortKey === 'last_contacted_at') { av = a.last_contacted_at || a.created_at; bv = b.last_contacted_at || b.created_at; }
-      else if (sortKey === 'created_at') { av = a.created_at; bv = b.created_at; }
-      else if (sortKey === 'company') { av = a.company || ''; bv = b.company || ''; }
-      else if (sortKey === 'status') {
-        const order = PIPELINE_STAGES.map(s => s.key);
-        av = order.indexOf(a.status); bv = order.indexOf(b.status);
-      }
-      if (av === bv) return 0;
-      if (sortDir === 'desc') return av > bv ? -1 : 1;
-      return av < bv ? -1 : 1;
-    });
     return list;
-  }, [clientLeads, activeStage, activeSources, search, sortKey, sortDir]);
+  }, [clientLeads, activeSources, search]);
 
   useEffect(() => { setVisibleCount(50); }, [activeStage, search, activeClientId, activeSources]);
 
@@ -1635,89 +1834,48 @@ export default function CRMPage() {
 
       {/* ── Pipeline view ── */}
       {view === 'Pipeline' && (
-        <div className="flex gap-4">
-          {/* Left sidebar */}
-          <StageFilterSidebar
-            leads={clientLeads}
-            activeStage={activeStage}
-            activeSources={activeSources}
-            onStageChange={setActiveStage}
-            onSourceToggle={handleSourceToggle}
-          />
-
-          {/* Main table area */}
-          <div className="flex-1 min-w-0 space-y-3">
-            {/* Search bar */}
-            <div className="relative">
+        <div className="space-y-3">
+          {/* Search + source filter row */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="relative flex-1 min-w-[180px]">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5" style={{ color: 'var(--tc-30)' }} />
               <input
                 value={search}
                 onChange={e => setSearch(e.target.value)}
-                placeholder="Search name, email, company, industry…"
+                placeholder="Search leads…"
                 className="w-full pl-8 pr-3 py-2 rounded-xl text-xs focus:outline-none"
                 style={{ background: 'var(--s-input)', border: '1px solid var(--s-input-b)', color: 'var(--tc-80)' }}
               />
             </div>
-
-            {/* Mobile stage filter pills */}
-            <div className="flex lg:hidden gap-1.5 flex-wrap">
+            {/* Source pills */}
+            {[...new Set(clientLeads.map(l => l.source).filter(Boolean))].map(src => (
               <button
-                onClick={() => setActiveStage(null)}
+                key={src!}
+                onClick={() => handleSourceToggle(src!)}
                 className="text-[10px] font-medium px-3 py-1.5 rounded-full transition-all"
-                style={!activeStage ? { background: `${B}18`, border: `1px solid ${B}45`, color: B } : { background: 'var(--s-hover)', border: '1px solid var(--s-pill-b)', color: 'var(--tc-40)' }}
+                style={
+                  activeSources.size === 0 || activeSources.has(src!)
+                    ? { background: `${B}15`, border: `1px solid ${B}35`, color: B }
+                    : { background: 'var(--s-hover)', border: '1px solid var(--s-pill-b)', color: 'var(--tc-35)' }
+                }
               >
-                All ({clientLeads.length})
+                {SOURCE_LABELS[src!] || src}
               </button>
-              {PIPELINE_STAGES.filter(s => clientLeads.some(l => l.status === s.key)).map(stage => {
-                const count = clientLeads.filter(l => l.status === stage.key).length;
-                return (
-                  <button
-                    key={stage.key}
-                    onClick={() => setActiveStage(activeStage === stage.key ? null : stage.key)}
-                    className="text-[10px] font-medium px-3 py-1.5 rounded-full transition-all"
-                    style={activeStage === stage.key ? { background: `${B}18`, border: `1px solid ${B}45`, color: B } : { background: 'var(--s-hover)', border: '1px solid var(--s-pill-b)', color: 'var(--tc-40)' }}
-                  >
-                    {stage.label} ({count})
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Lead table or empty */}
-            {loading ? (
-              <div className="flex items-center justify-center py-12 gap-2" style={{ color: 'var(--tc-25)' }}>
-                <RefreshCw className="h-4 w-4 animate-spin" />
-                <span className="text-xs">Loading…</span>
-              </div>
-            ) : (
-              <>
-                <LeadTable
-                  leads={visibleLeads}
-                  logSteps={logSteps}
-                  onSelect={setSelectedLead}
-                  sortKey={sortKey}
-                  sortDir={sortDir}
-                  onSort={handleSort}
-                />
-
-                {/* Load more */}
-                <div className="flex items-center justify-between pt-1 pb-2">
-                  <span className="text-[10px]" style={{ color: 'var(--tc-25)' }}>
-                    Showing {Math.min(visibleCount, filteredLeads.length)} of {filteredLeads.length} leads
-                  </span>
-                  {visibleCount < filteredLeads.length && (
-                    <button
-                      onClick={() => setVisibleCount(c => c + 50)}
-                      className="text-[10px] font-semibold px-3 py-1.5 rounded-full transition-all"
-                      style={{ background: `${B}12`, border: `1px solid ${B}30`, color: B }}
-                    >
-                      Load 50 more
-                    </button>
-                  )}
-                </div>
-              </>
-            )}
+            ))}
+            <span className="text-[10px] ml-auto" style={{ color: 'var(--tc-25)' }}>
+              {filteredLeads.length} leads
+            </span>
           </div>
+
+          {/* Kanban board */}
+          {loading ? (
+            <div className="flex items-center justify-center py-16 gap-2" style={{ color: 'var(--tc-25)' }}>
+              <RefreshCw className="h-4 w-4 animate-spin" />
+              <span className="text-xs">Loading…</span>
+            </div>
+          ) : (
+            <KanbanBoard leads={filteredLeads} logSteps={logSteps} onSelect={setSelectedLead} />
+          )}
         </div>
       )}
 
