@@ -55,6 +55,15 @@ interface Lead {
   quality_score: number;
   enriched_at: string | null;
   linkedin_status: string | null;
+  company_description: string | null;
+  tech_stack: string[] | null;
+  company_keywords: string[] | null;
+  twitter_url: string | null;
+  company_linkedin_url: string | null;
+  annual_revenue: string | null;
+  founded_year: number | null;
+  seniority: string | null;
+  departments: string[] | null;
   ai_analysis: AIAnalysis | null;
   ai_score: number | null;
   ai_analysed_at: string | null;
@@ -186,6 +195,19 @@ function scoreBg(score: number): string {
   const c = scoreColor(score);
   return `${c}18`;
 }
+
+const SENIORITY_LABELS: Record<string, { label: string; color: string }> = {
+  owner:    { label: 'Owner',    color: '#a78bfa' },
+  founder:  { label: 'Founder',  color: '#a78bfa' },
+  c_suite:  { label: 'C-Suite',  color: '#f472b6' },
+  partner:  { label: 'Partner',  color: '#f472b6' },
+  vp:       { label: 'VP',       color: '#fb923c' },
+  head:     { label: 'Head',     color: '#fb923c' },
+  director: { label: 'Director', color: '#facc15' },
+  manager:  { label: 'Manager',  color: '#4B9EFF' },
+  senior:   { label: 'Senior',   color: '#94a3b8' },
+  entry:    { label: 'Entry',    color: '#64748b' },
+};
 
 function countryFlag(country: string | null): string {
   if (!country) return '';
@@ -523,9 +545,23 @@ function KanbanLeadCard({ lead, logSteps, onSelect }: {
                   : null
               }
             </div>
-            {effTitle && (
-              <p className="text-[10px] truncate" style={{ color: 'var(--tc-40)' }}>{effTitle}</p>
-            )}
+            <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+              {effTitle && (
+                <p className="text-[10px] truncate" style={{ color: 'var(--tc-40)' }}>{effTitle}</p>
+              )}
+              {lead.seniority && SENIORITY_LABELS[lead.seniority] && (
+                <span
+                  className="text-[8px] font-bold px-1.5 py-0.5 rounded-full shrink-0"
+                  style={{
+                    background: `${SENIORITY_LABELS[lead.seniority].color}15`,
+                    color: SENIORITY_LABELS[lead.seniority].color,
+                    border: `1px solid ${SENIORITY_LABELS[lead.seniority].color}30`,
+                  }}
+                >
+                  {SENIORITY_LABELS[lead.seniority].label}
+                </span>
+              )}
+            </div>
           </div>
         </div>
 
@@ -1091,9 +1127,23 @@ function LeadDetailSheet({
               </div>
               <div>
                 <h2 className="text-sm font-bold" style={{ color: 'var(--tc-90)' }}>{name}</h2>
-                {eff.title && (
-                  <p className="text-[11px]" style={{ color: 'var(--tc-50)' }}>{eff.title}</p>
-                )}
+                <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
+                  {eff.title && (
+                    <p className="text-[11px]" style={{ color: 'var(--tc-50)' }}>{eff.title}</p>
+                  )}
+                  {lead.seniority && SENIORITY_LABELS[lead.seniority] && (
+                    <span
+                      className="text-[9px] font-bold px-1.5 py-0.5 rounded-full"
+                      style={{
+                        background: `${SENIORITY_LABELS[lead.seniority].color}15`,
+                        color: SENIORITY_LABELS[lead.seniority].color,
+                        border: `1px solid ${SENIORITY_LABELS[lead.seniority].color}30`,
+                      }}
+                    >
+                      {SENIORITY_LABELS[lead.seniority].label}
+                    </span>
+                  )}
+                </div>
                 {lead.company && (
                   <p className="text-[11px]" style={{ color: 'var(--tc-40)' }}>{lead.company}</p>
                 )}
@@ -1121,16 +1171,33 @@ function LeadDetailSheet({
               </a>
             )}
             {lead.website && (
-              <a
-                href={lead.website}
-                target="_blank"
-                rel="noopener noreferrer"
+              <a href={lead.website} target="_blank" rel="noopener noreferrer"
                 className="flex items-center gap-1.5 text-[10px] px-2.5 py-1 rounded-full font-medium"
                 style={{ background: 'var(--s-hover)', color: 'var(--tc-45)', border: '1px solid var(--s-pill-b)' }}
                 onClick={e => e.stopPropagation()}
               >
                 <Globe className="h-3 w-3" />
                 Website
+              </a>
+            )}
+            {lead.twitter_url && (
+              <a href={lead.twitter_url} target="_blank" rel="noopener noreferrer"
+                className="flex items-center gap-1.5 text-[10px] px-2.5 py-1 rounded-full font-medium"
+                style={{ background: '#1DA1F215', color: '#1DA1F2', border: '1px solid #1DA1F230' }}
+                onClick={e => e.stopPropagation()}
+              >
+                <span className="text-[10px] font-bold">𝕏</span>
+                Twitter
+              </a>
+            )}
+            {lead.company_linkedin_url && (
+              <a href={lead.company_linkedin_url} target="_blank" rel="noopener noreferrer"
+                className="flex items-center gap-1.5 text-[10px] px-2.5 py-1 rounded-full font-medium"
+                style={{ background: '#0077B508', color: '#0077B580', border: '1px solid #0077B520' }}
+                onClick={e => e.stopPropagation()}
+              >
+                <Building2 className="h-3 w-3" />
+                Company
               </a>
             )}
           </div>
@@ -1180,6 +1247,59 @@ function LeadDetailSheet({
               ) : null}
             </div>
           </div>
+
+          {/* Company Intel */}
+          {(lead.company_description || lead.tech_stack?.length || lead.annual_revenue || lead.founded_year || lead.departments?.length) && (
+            <div className="rounded-xl p-3 space-y-2.5" style={{ background: 'var(--s-hover)', border: '1px solid var(--s-card-b)' }}>
+              <p className="text-[9px] uppercase tracking-widest" style={{ color: 'var(--tc-30)' }}>Company Intel</p>
+
+              {lead.company_description && (
+                <p className="text-[11px] leading-relaxed" style={{ color: 'var(--tc-55)' }}>
+                  {lead.company_description.length > 220
+                    ? lead.company_description.slice(0, 220) + '…'
+                    : lead.company_description}
+                </p>
+              )}
+
+              <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-[11px]">
+                {lead.annual_revenue && (
+                  <div>
+                    <span style={{ color: 'var(--tc-30)' }}>Revenue</span>
+                    <p style={{ color: 'var(--tc-65)' }}>{lead.annual_revenue}</p>
+                  </div>
+                )}
+                {lead.founded_year && (
+                  <div>
+                    <span style={{ color: 'var(--tc-30)' }}>Founded</span>
+                    <p style={{ color: 'var(--tc-65)' }}>{lead.founded_year}</p>
+                  </div>
+                )}
+                {lead.departments?.length ? (
+                  <div className="col-span-2">
+                    <span style={{ color: 'var(--tc-30)' }}>Department</span>
+                    <p style={{ color: 'var(--tc-65)' }} className="capitalize">{lead.departments.join(', ')}</p>
+                  </div>
+                ) : null}
+              </div>
+
+              {lead.tech_stack?.length ? (
+                <div>
+                  <p className="text-[9px] uppercase tracking-widest mb-1.5" style={{ color: 'var(--tc-30)' }}>Tech Stack</p>
+                  <div className="flex flex-wrap gap-1">
+                    {lead.tech_stack.slice(0, 20).map(tool => (
+                      <span
+                        key={tool}
+                        className="text-[9px] px-1.5 py-0.5 rounded-full"
+                        style={{ background: 'var(--s-card)', color: 'var(--tc-50)', border: '1px solid var(--s-card-b)' }}
+                      >
+                        {tool}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          )}
 
           {/* Contact */}
           <div className="rounded-xl p-3 space-y-2" style={{ background: 'var(--s-hover)', border: '1px solid var(--s-card-b)' }}>
