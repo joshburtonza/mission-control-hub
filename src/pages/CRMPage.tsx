@@ -1041,15 +1041,20 @@ function LeadDetailSheet({
   };
 
   useEffect(() => {
+    let cancelled = false;
+    setLogsLoading(true);
     (supabase as any)
       .from('outreach_log')
       .select('*')
       .eq('lead_id', lead.id)
       .order('step', { ascending: true })
       .then(({ data }: any) => {
-        setLogs(data || []);
-        setLogsLoading(false);
+        if (!cancelled) {
+          setLogs(data || []);
+          setLogsLoading(false);
+        }
       });
+    return () => { cancelled = true; };
   }, [lead.id]);
 
   const stepsComplete = logs.length;
@@ -2123,30 +2128,25 @@ export default function CRMPage() {
     });
   };
 
-  // Load clients table
-  useEffect(() => {
-    (supabase as any)
-      .from('clients')
-      .select('*')
-      .order('name')
-      .then(({ data }: any) => {
-        if (data) setClients(data);
-      });
-  }, []);
+  const refetchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const fetchLeads = useCallback(async (spin = false) => {
     if (spin) setSpinning(true);
-    const [leadsRes, logsRes] = await Promise.all([
+    const [leadsRes, logsRes, clientsRes] = await Promise.all([
       (supabase as any)
         .from('leads')
         .select('*')
         .order('created_at', { ascending: false })
-        .limit(5000),
+        .limit(1000),
       (supabase as any)
         .from('outreach_log')
         .select('*')
         .order('sent_at', { ascending: false })
-        .limit(5000),
+        .limit(2000),
+      (supabase as any)
+        .from('clients')
+        .select('*')
+        .order('name'),
     ]);
     if (!leadsRes.error) setLeads(leadsRes.data || []);
     if (!logsRes.error) {
@@ -2159,19 +2159,29 @@ export default function CRMPage() {
       }
       setLogSteps(map);
     }
+    if (!clientsRes.error && clientsRes.data) setClients(clientsRes.data);
     setLoading(false);
     if (spin) setTimeout(() => setSpinning(false), 500);
   }, []);
+
+  // Debounced realtime handler — collapses burst events into one refetch
+  const scheduleRefetch = useCallback(() => {
+    if (refetchTimer.current) clearTimeout(refetchTimer.current);
+    refetchTimer.current = setTimeout(() => fetchLeads(), 350);
+  }, [fetchLeads]);
 
   useEffect(() => {
     fetchLeads();
     const ch = (supabase as any)
       .channel('crm_leads_live')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'leads' }, () => fetchLeads())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'outreach_log' }, () => fetchLeads())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'leads' }, scheduleRefetch)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'outreach_log' }, scheduleRefetch)
       .subscribe();
-    return () => { (supabase as any).removeChannel(ch); };
-  }, [fetchLeads]);
+    return () => {
+      if (refetchTimer.current) clearTimeout(refetchTimer.current);
+      (supabase as any).removeChannel(ch);
+    };
+  }, [fetchLeads, scheduleRefetch]);
 
   const handleStatusChange = async (id: string, status: string) => {
     await (supabase as any).from('leads').update({ status }).eq('id', id);
