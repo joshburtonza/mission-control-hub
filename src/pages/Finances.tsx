@@ -539,7 +539,7 @@ export default function Finances() {
 
   // Net position — use last month total as MRR proxy (current month incomplete early in month)
   const mrr          = lastTotal || total;
-  const joshDraw     = 33000; // Josh's drawings
+  const joshDraw     = 57000; // Josh's drawings (current — increased from R33k)
   // Only business subs in outflow — personal subs (insurance, medical aid etc) are personal
   const totalOutflow = totalBizSubs + joshDraw;
   const netSurplus   = mrr - totalOutflow;
