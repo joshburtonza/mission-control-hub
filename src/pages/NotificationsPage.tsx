@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import { Bell, Mail, AlertTriangle, CheckCircle2, Activity, GitBranch, Zap, Send, BellOff, RefreshCw, X } from 'lucide-react';
 
 /* ── Types ── */
@@ -101,6 +102,8 @@ function Chip({ label, active, onClick }: { label: string; active: boolean; onCl
    Page
 ════════════════════════════════════════ */
 export default function NotificationsPage() {
+  const { mcUser, isOwner } = useAuth();
+
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading]   = useState(true);
   const [spinning, setSpinning] = useState(false);
@@ -110,12 +113,16 @@ export default function NotificationsPage() {
 
   const fetch = async (spin = false) => {
     if (spin) setSpinning(true);
-    const { data, error } = await supabase
+    let query = supabase
       .from('notifications')
       .select('*')
       .neq('status', 'dismissed')
       .order('created_at', { ascending: false })
       .limit(100);
+    if (!isOwner && mcUser?.display_name) {
+      query = query.eq('agent', mcUser.display_name);
+    }
+    const { data, error } = await query;
     if (!error) setNotifications((data as Notification[]) || []);
     setLoading(false);
     if (spin) setTimeout(() => setSpinning(false), 500);
@@ -139,9 +146,13 @@ export default function NotificationsPage() {
   };
 
   const markAllRead = async () => {
-    await supabase.from('notifications')
+    let query = (supabase as any).from('notifications')
       .update({ status: 'read', read_at: new Date().toISOString() })
       .eq('status', 'unread');
+    if (!isOwner && mcUser?.display_name) {
+      query = query.eq('agent', mcUser.display_name);
+    }
+    await query;
   };
 
   const handleExpand = (id: string, status: string) => {

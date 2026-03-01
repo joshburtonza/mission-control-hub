@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import { Plus, X, RefreshCw, CheckCircle2, XCircle, Clock, Loader2, ChevronDown, ChevronUp, Tag, Send } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -261,12 +262,13 @@ function TaskCard({
 interface AddTaskFormProps {
   onAdded: () => void;
   onCancel: () => void;
+  creatorName: string;
 }
 
-function AddTaskForm({ onAdded, onCancel }: AddTaskFormProps) {
+function AddTaskForm({ onAdded, onCancel, creatorName }: AddTaskFormProps) {
   const [title, setTitle]         = useState('');
   const [priority, setPriority]   = useState('normal');
-  const [assignedTo, setAssignedTo] = useState('Josh');
+  const [assignedTo, setAssignedTo] = useState(creatorName);
   const [submitting, setSubmitting] = useState(false);
 
   const submit = async () => {
@@ -276,9 +278,9 @@ function AddTaskForm({ onAdded, onCancel }: AddTaskFormProps) {
       const { error } = await (supabase as any).from('tasks').insert({
         title: title.trim(),
         priority,
-        assigned_to: assignedTo.trim() || 'Josh',
+        assigned_to: assignedTo.trim() || creatorName,
         status: 'todo',
-        created_by: 'Josh',
+        created_by: creatorName,
       });
       if (error) throw error;
       toast.success('Task added');
@@ -513,6 +515,9 @@ function ClaudeQueue({ queueItems, onRefresh }: ClaudeQueueProps) {
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function Tasks() {
+  const { mcUser, isOwner } = useAuth();
+  const creatorName = mcUser?.display_name ?? 'Josh';
+
   const [tasks, setTasks]           = useState<Task[]>([]);
   const [queueItems, setQueueItems] = useState<QueueItem[]>([]);
   const [loading, setLoading]       = useState(true);
@@ -522,13 +527,17 @@ export default function Tasks() {
   const [showAddForm, setShowAddForm] = useState(false);
 
   const fetchTasks = useCallback(async () => {
-    const { data, error } = await (supabase as any)
+    let query = (supabase as any)
       .from('tasks')
       .select('*')
       .order('created_at', { ascending: false })
       .limit(200);
+    if (!isOwner && creatorName) {
+      query = query.eq('created_by', creatorName);
+    }
+    const { data, error } = await query;
     if (!error) setTasks((data as Task[]) || []);
-  }, []);
+  }, [isOwner, creatorName]);
 
   const fetchQueue = useCallback(async () => {
     const { data, error } = await (supabase as any)
@@ -637,6 +646,7 @@ export default function Tasks() {
         <AddTaskForm
           onAdded={() => { setShowAddForm(false); fetchTasks(); }}
           onCancel={() => setShowAddForm(false)}
+          creatorName={creatorName}
         />
       )}
 
@@ -723,8 +733,8 @@ export default function Tasks() {
         </div>
       )}
 
-      {/* ── Claude Queue (collapsible) ── */}
-      <ClaudeQueue queueItems={queueItems} onRefresh={fetchQueue} />
+      {/* ── Claude Queue (collapsible, owner only) ── */}
+      {isOwner && <ClaudeQueue queueItems={queueItems} onRefresh={fetchQueue} />}
     </div>
   );
 }
