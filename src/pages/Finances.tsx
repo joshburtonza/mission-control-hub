@@ -1208,7 +1208,7 @@ export default function Finances() {
 
       {/* ══ Debt Projection — owner only ══ */}
       {isOwner && debt.length > 0 && (() => {
-        const DEBT_COLORS = ['#f87171', '#fb923c', '#facc15', '#4ade80', '#60a5fa', '#c084fc'];
+        const DEBT_COLORS = ['#f87171', '#fb923c', '#facc15', '#4ade80', '#60a5fa', '#c084fc', '#f472b6'];
         // Minimums are paid from within living expenses (R36k), not from this budget.
         // The full R21k surplus goes directly to the attack target each month.
         // When a debt is paid off, its freed minimum rolls into the pool (cascade effect).
@@ -1307,33 +1307,34 @@ export default function Finances() {
                   return acc;
                 }, {} as ChartConfig);
                 return (
-                  <ChartContainer config={debtChartConfig} className="h-[200px]">
-                    <AreaChart data={chartData} margin={{ top: 8, right: 8, left: -8, bottom: 0 }}>
-                      <CartesianGrid stroke={isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.05)'} vertical={false} />
+                  <ChartContainer config={debtChartConfig} className="h-[300px]">
+                    <AreaChart data={chartData} margin={{ top: 12, right: 12, left: 12, bottom: 0 }}>
+                      <CartesianGrid stroke={isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.05)'} vertical={false} />
                       <XAxis dataKey="month"
-                        tick={{ fontSize: 9, fill: txt.chartAxis }} axisLine={false} tickLine={false}
+                        tick={{ fontSize: 9, fill: txt.muted }} axisLine={false} tickLine={false}
                         interval="preserveStartEnd" />
+                      <YAxis
+                        tick={{ fontSize: 9, fill: txt.muted }} axisLine={false} tickLine={false}
+                        tickFormatter={v => v >= 1000 ? `R${Math.round(v / 1000)}k` : `R${v}`}
+                        width={40} />
                       <ChartTooltip cursor={{ stroke: 'rgba(75,158,255,0.15)', strokeWidth: 1, strokeDasharray: '4 4' }}
                         content={<ChartTooltipContent formatter={(v) => fmtFull(Number(v))} />} />
                       <defs>
                         {debt.map((d, idx) => {
                           const col = DEBT_COLORS[idx % DEBT_COLORS.length];
                           return (
-                            <React.Fragment key={d.name}>
-                              <HatchedPattern id={`hatch-${idx}`} color={col} animated={false} />
-                              <linearGradient id={`grad-debt-${idx}`} x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="5%" stopColor={col} stopOpacity={0.4} />
-                                <stop offset="95%" stopColor={col} stopOpacity={0} />
-                              </linearGradient>
-                            </React.Fragment>
+                            <linearGradient key={d.name} id={`grad-debt-${idx}`} x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor={col} stopOpacity={0.15} />
+                              <stop offset="100%" stopColor={col} stopOpacity={0} />
+                            </linearGradient>
                           );
                         })}
                       </defs>
                       {debt.map((d, idx) => (
-                        <Area key={d.name} type="natural" dataKey={d.name} stackId="debt"
-                          stroke={DEBT_COLORS[idx % DEBT_COLORS.length]} strokeWidth={0.8}
-                          fill={`url(#grad-debt-${idx})`} fillOpacity={0.4}
-                          dot={false} animationDuration={1200 + idx * 150} animationEasing="ease-out" />
+                        <Area key={d.name} type="monotone" dataKey={d.name}
+                          stroke={DEBT_COLORS[idx % DEBT_COLORS.length]} strokeWidth={2}
+                          fill={`url(#grad-debt-${idx})`}
+                          dot={false} animationDuration={1000 + idx * 200} animationEasing="ease-out" />
                       ))}
                     </AreaChart>
                   </ChartContainer>
