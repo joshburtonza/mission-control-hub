@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import {
   CheckCircle, Mail, Clock, MessageSquare, Send,
-  ExternalLink, Calendar, Briefcase, Users,
+  ExternalLink, Calendar, Users, Github,
 } from 'lucide-react';
 import { SwipeableCard } from '@/components/ui/swipeable-card';
 
@@ -90,270 +90,200 @@ function stripHtml(html: string) {
 }
 
 /* ════════════════════════════════════════
-   Client Tile
+   Sentiment badge
 ════════════════════════════════════════ */
-function ClientTile({
-  client, pendingCount, lastActivity, selected, onClick,
-}: {
-  client: Client;
-  pendingCount: number;
-  lastActivity: string | null;
-  selected: boolean;
-  onClick: () => void;
-}) {
-  const color = CLIENT_COLORS[client.slug] || B;
-  const cp = client.profile?.current_project;
-  const countdown = countdownDisplay(cp?.target_completion);
-
-  return (
-    <button
-      onClick={onClick}
-      className="w-full text-left transition-all duration-200"
-      style={{
-        ...cardStyle,
-        border: `1px solid ${selected ? `${color}45` : 'rgba(255,255,255,0.06)'}`,
-        background: selected ? `${color}0F` : 'var(--s-card)',
-        boxShadow: selected ? `0 0 24px ${color}18` : 'var(--s-card-shadow)',
-        padding: '18px',
-      }}
-    >
-      <div className="flex items-start gap-3">
-        {/* Avatar */}
-        <div
-          className="h-11 w-11 rounded-xl flex items-center justify-center shrink-0 text-base font-bold"
-          style={{ background: `${color}20`, border: `1px solid ${color}30`, color }}
-        >
-          {client.name.charAt(0)}
-        </div>
-
-        <div className="flex-1 min-w-0">
-          <div className="flex items-start justify-between gap-2">
-            <div className="min-w-0">
-              <p className="text-sm font-bold truncate" style={{ color: 'var(--tc-90)' }}>{client.name}</p>
-              <p className="text-[10px] mt-0.5 truncate" style={{ color: 'var(--tc-40)' }}>
-                {client.project_name}
-              </p>
-            </div>
-            <div className="flex items-center gap-1.5 shrink-0 mt-0.5">
-              {pendingCount > 0 && (
-                <span
-                  className="text-[9px] font-bold px-1.5 py-0.5 rounded tabular-nums"
-                  style={{ background: `${color}20`, color, border: `1px solid ${color}30` }}
-                >
-                  {pendingCount}
-                </span>
-              )}
-              <div
-                className="h-2 w-2 rounded-full shrink-0"
-                style={{
-                  background: client.status === 'active' ? '#4ADE80' : '#6B7280',
-                  boxShadow: client.status === 'active' ? '0 0 6px #4ADE8090' : 'none',
-                }}
-              />
-            </div>
-          </div>
-
-          <div className="mt-2 flex items-center gap-2 flex-wrap">
-            <span className="text-[10px]" style={{ color: 'var(--tc-35)' }}>{client.contact_person}</span>
-            {lastActivity && (
-              <span className="text-[10px]" style={{ color: 'var(--tc-25)' }}>· {timeSince(lastActivity)}</span>
-            )}
-            {countdown && (
-              <span
-                className="text-[9px] px-1.5 py-0.5 rounded font-medium"
-                style={{ background: '#F59E0B12', color: '#F59E0B', border: '1px solid #F59E0B28' }}
-              >
-                {countdown}
-              </span>
-            )}
-          </div>
-        </div>
-      </div>
-    </button>
-  );
-}
+const SENTIMENT_STYLE: Record<string, { bg: string; color: string; label: string }> = {
+  positive:  { bg: '#4ADE8015', color: '#4ADE80', label: 'Healthy' },
+  neutral:   { bg: 'rgba(255,255,255,0.07)', color: 'var(--tc-45)', label: 'Neutral' },
+  cautious:  { bg: '#F59E0B12', color: '#F59E0B', label: 'Cautious' },
+  at_risk:   { bg: '#F8717115', color: '#F87171', label: 'At Risk' },
+};
 
 /* ════════════════════════════════════════
-   Client Detail Panel
+   Client Card — always-visible rich view
 ════════════════════════════════════════ */
-function ClientDetail({ client, emails }: { client: Client; emails: EmailItem[] }) {
-  const color = CLIENT_COLORS[client.slug] || B;
-  const cp = client.profile?.current_project;
-
-  const latestOutbound = emails.find(
-    e => (e.from_email?.includes('@amalfiai.com')) && (e.status === 'sent' || e.status === 'approved')
-  );
-  const latestInbound = emails.find(
-    e => !e.from_email?.includes('@amalfiai.com') && e.client === client.slug
-  );
-
-  const startDate = new Date(client.created_at);
+function ClientCard({
+  client, emails, pendingCount,
+}: {
+  client: Client;
+  emails: EmailItem[];
+  pendingCount: number;
+}) {
+  const color  = CLIENT_COLORS[client.slug] || B;
+  const cp     = client.profile?.current_project;
+  const team   = (client.profile?.team || []) as { name: string; role: string; email?: string }[];
+  const repos  = (client.profile?.github_repos || []) as { url: string; name: string }[];
+  const contract = client.profile?.contract as { retainer_monthly?: number; setup_fee?: number; start_month?: string; notes?: string } | undefined;
+  const sentiment = SENTIMENT_STYLE[client.sentiment] || SENTIMENT_STYLE.neutral;
   const countdown = countdownDisplay(cp?.target_completion);
 
-  const outboundBody = latestOutbound?.analysis?.draft_body || latestOutbound?.body || '';
-  const outboundPreview = outboundBody ? stripHtml(outboundBody).substring(0, 220) : '';
+  const startDate  = contract?.start_month
+    ? new Date(contract.start_month + '-01')
+    : new Date(client.created_at);
+  const monthsActive = Math.max(0, Math.floor((Date.now() - startDate.getTime()) / (1000 * 60 * 60 * 24 * 30.44)));
+
+  const latestEmail = emails.find(
+    e => e.from_email?.includes('@amalfiai.com') && (e.status === 'sent' || e.status === 'approved')
+  );
+
+  const fmtRetainer = (v: number) =>
+    v >= 1000 ? `R${(v / 1000).toFixed(v % 1000 === 0 ? 0 : 1)}k` : `R${v}`;
 
   return (
     <div
-      className="rounded-2xl p-5 space-y-5"
+      className="rounded-2xl flex flex-col gap-4 p-5"
       style={{
-        background: 'rgba(0,0,0,0.45)',
-        border: `1px solid ${color}20`,
-        backdropFilter: 'blur(16px)',
+        ...cardStyle,
+        borderLeft: `3px solid ${color}`,
+        boxShadow: `var(--s-card-shadow), inset 3px 0 0 ${color}`,
       }}
     >
-      {/* Header */}
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <h3 className="text-sm font-bold" style={{ color: 'var(--tc-90)' }}>{client.name}</h3>
-          <p className="text-[11px] mt-0.5" style={{ color: 'var(--tc-40)' }}>
-            {client.project_name} · {client.contact_person}
-          </p>
+      {/* ── Header ── */}
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0">
+          <div
+            className="h-11 w-11 rounded-xl flex items-center justify-center shrink-0 text-lg font-black"
+            style={{ background: `${color}18`, border: `1px solid ${color}30`, color }}
+          >
+            {client.name.charAt(0)}
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-bold leading-tight" style={{ color: 'var(--tc-90)' }}>{client.name}</p>
+            <p className="text-[11px] mt-0.5" style={{ color: 'var(--tc-40)' }}>
+              {cp?.name || client.project_name}
+            </p>
+          </div>
         </div>
-        {cp?.platform_url && (
-          <a
-            href={cp.platform_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1.5 text-[10px] px-2.5 py-1.5 rounded-lg shrink-0"
-            style={{ background: `${color}15`, color, border: `1px solid ${color}25` }}
-            onClick={e => e.stopPropagation()}
-          >
-            <ExternalLink className="h-3 w-3" />
-            Open app
-          </a>
+        <div className="flex items-center gap-1.5 shrink-0">
+          {pendingCount > 0 && (
+            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded tabular-nums"
+              style={{ background: `${color}20`, color, border: `1px solid ${color}30` }}>
+              {pendingCount} pending
+            </span>
+          )}
+          <span className="text-[9px] font-semibold px-2 py-0.5 rounded-full"
+            style={{ background: sentiment.bg, color: sentiment.color }}>
+            {sentiment.label}
+          </span>
+          <div className="h-2 w-2 rounded-full shrink-0"
+            style={{ background: '#4ADE80', boxShadow: '0 0 6px #4ADE8090' }} />
+        </div>
+      </div>
+
+      {/* ── Phase + Stack ── */}
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
+          style={{ background: `${color}12`, color, border: `1px solid ${color}25` }}>
+          {cp?.phase || 'Active'}
+        </span>
+        {Array.isArray(cp?.stack) && cp.stack.length > 0 && (
+          <div className="flex items-center gap-1 flex-wrap justify-end">
+            {(cp.stack as string[]).map(s => (
+              <span key={s} className="text-[9px] px-1.5 py-0.5 rounded"
+                style={{ background: 'rgba(255,255,255,0.06)', color: 'var(--tc-40)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                {s}
+              </span>
+            ))}
+          </div>
         )}
       </div>
 
-      {/* Latest Communication */}
-      <div>
-        <p className="text-[10px] uppercase tracking-widest mb-2.5 flex items-center gap-1.5"
-          style={{ color: 'var(--tc-25)' }}>
-          <Mail className="h-3 w-3" />
-          Latest communication
-        </p>
-
-        {latestInbound && (
-          <div
-            className="rounded-xl p-3 mb-2"
-            style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
-          >
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-[9px] font-medium" style={{ color: 'var(--tc-40)' }}>
-                {client.contact_person} → Sophia
-              </span>
-              <span className="text-[9px]" style={{ color: 'var(--tc-25)' }}>{timeSince(latestInbound.created_at)}</span>
-            </div>
-            <p className="text-[11px] font-medium" style={{ color: 'var(--tc-70)' }}>{latestInbound.subject}</p>
-          </div>
-        )}
-
-        {latestOutbound ? (
-          <div
-            className="rounded-xl p-3"
-            style={{ background: `${color}0A`, border: `1px solid ${color}18` }}
-          >
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-[9px] font-medium" style={{ color }}>
-                Sophia → {client.contact_person}
-              </span>
-              <span className="text-[9px]" style={{ color: 'var(--tc-25)' }}>{timeSince(latestOutbound.created_at)}</span>
-            </div>
-            <p className="text-[11px] font-medium mb-1" style={{ color: 'var(--tc-80)' }}>{latestOutbound.subject}</p>
-            {outboundPreview && (
-              <p className="text-[10px] leading-relaxed" style={{ color: 'var(--tc-40)' }}>
-                {outboundPreview}{outboundPreview.length >= 220 ? '…' : ''}
-              </p>
-            )}
-          </div>
-        ) : (
-          <p className="text-xs" style={{ color: 'var(--tc-30)' }}>No emails sent yet</p>
-        )}
-      </div>
-
-      {/* Project Scope */}
-      {cp && (
+      {/* ── Contacts ── */}
+      {team.length > 0 && (
         <div>
-          <p className="text-[10px] uppercase tracking-widest mb-2.5 flex items-center gap-1.5"
-            style={{ color: 'var(--tc-25)' }}>
-            <Briefcase className="h-3 w-3" />
-            Project scope
-          </p>
-          <div
-            className="rounded-xl p-3 space-y-2"
-            style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}
-          >
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-[11px] font-semibold" style={{ color: 'var(--tc-70)' }}>{cp.name}</p>
-              <span
-                className="text-[9px] px-1.5 py-0.5 rounded font-medium shrink-0"
-                style={{ background: '#4ADE800F', color: '#4ADE80', border: '1px solid #4ADE8025' }}
-              >
-                {cp.phase || 'Active'}
-              </span>
-            </div>
-            {cp.phase_status && (
-              <p className="text-[10px]" style={{ color: 'var(--tc-40)' }}>{cp.phase_status}</p>
-            )}
-            {Array.isArray(cp.core_features) && cp.core_features.length > 0 && (
-              <ul className="space-y-1 pt-1">
-                {(cp.core_features as string[]).slice(0, 5).map((f, i) => (
-                  <li key={i} className="flex items-start gap-1.5 text-[10px]" style={{ color: 'var(--tc-40)' }}>
-                    <span className="mt-0.5 shrink-0" style={{ color }}>·</span>
-                    {f}
-                  </li>
-                ))}
-                {cp.core_features.length > 5 && (
-                  <li className="text-[10px] pl-3" style={{ color: 'var(--tc-25)' }}>
-                    +{cp.core_features.length - 5} more features
-                  </li>
-                )}
-              </ul>
-            )}
+          <p className="text-[9px] uppercase tracking-widest mb-1.5" style={{ color: 'var(--tc-25)' }}>Contacts</p>
+          <div className="space-y-1">
+            {team.slice(0, 3).map(t => (
+              <div key={t.name} className="flex items-center justify-between">
+                <span className="text-[11px] font-medium" style={{ color: 'var(--tc-70)' }}>{t.name}</span>
+                <span className="text-[10px]" style={{ color: 'var(--tc-35)' }}>{t.role}</span>
+              </div>
+            ))}
           </div>
         </div>
       )}
 
-      {/* Contract & Timeline */}
-      <div>
-        <p className="text-[10px] uppercase tracking-widest mb-2.5 flex items-center gap-1.5"
-          style={{ color: 'var(--tc-25)' }}>
-          <Calendar className="h-3 w-3" />
-          Contract & timeline
-        </p>
-        <div className="grid grid-cols-2 gap-2">
-          <div
-            className="rounded-xl p-3"
-            style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}
-          >
-            <p className="text-[9px] uppercase tracking-widest mb-1.5" style={{ color: 'var(--tc-25)' }}>Started</p>
-            <p className="text-xs font-semibold" style={{ color: 'var(--tc-70)' }}>
-              {startDate.toLocaleDateString('en-ZA', { month: 'short', year: 'numeric' })}
-            </p>
-            <p className="text-[9px] mt-0.5" style={{ color: 'var(--tc-30)' }}>
-              {Math.floor((Date.now() - startDate.getTime()) / 86400000)}d active
-            </p>
-          </div>
-          <div
-            className="rounded-xl p-3"
-            style={countdown
-              ? { background: '#F59E0B08', border: '1px solid #F59E0B22' }
-              : { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}
-          >
-            <p className="text-[9px] uppercase tracking-widest mb-1.5" style={{ color: 'var(--tc-25)' }}>Handover</p>
-            {countdown ? (
-              <>
-                <p className="text-xs font-bold" style={{ color: '#F59E0B' }}>{countdown}</p>
-                <p className="text-[9px] mt-0.5" style={{ color: 'var(--tc-30)' }}>{cp?.target_completion}</p>
-              </>
-            ) : (
-              <>
-                <p className="text-xs font-semibold" style={{ color: 'var(--tc-50)' }}>Ongoing</p>
-                <p className="text-[9px] mt-0.5" style={{ color: 'var(--tc-25)' }}>Retainer</p>
-              </>
+      {/* ── Project Scope ── */}
+      {Array.isArray(cp?.core_features) && cp.core_features.length > 0 && (
+        <div>
+          <p className="text-[9px] uppercase tracking-widest mb-2" style={{ color: 'var(--tc-25)' }}>Scope</p>
+          <ul className="grid grid-cols-1 gap-1">
+            {(cp.core_features as string[]).slice(0, 6).map((f, i) => (
+              <li key={i} className="flex items-start gap-1.5 text-[10px]" style={{ color: 'var(--tc-45)' }}>
+                <span className="shrink-0 mt-0.5 font-bold" style={{ color }}>·</span>
+                {f}
+              </li>
+            ))}
+            {cp.core_features.length > 6 && (
+              <li className="text-[10px] pl-3" style={{ color: 'var(--tc-25)' }}>
+                +{cp.core_features.length - 6} more
+              </li>
             )}
-          </div>
+          </ul>
         </div>
+      )}
+
+      {/* ── Contract ── */}
+      <div className="grid grid-cols-3 gap-2">
+        {[
+          {
+            label: 'Retainer',
+            value: contract?.retainer_monthly ? fmtRetainer(contract.retainer_monthly) + '/mo' : 'Agreed',
+            sub: contract?.setup_fee ? `+ ${fmtRetainer(contract.setup_fee)} setup` : 'monthly',
+          },
+          {
+            label: 'Started',
+            value: startDate.toLocaleDateString('en-ZA', { month: 'short', year: 'numeric' }),
+            sub: `${monthsActive} month${monthsActive !== 1 ? 's' : ''} active`,
+          },
+          {
+            label: countdown ? 'Handover' : 'Duration',
+            value: countdown || 'Ongoing',
+            sub: countdown ? cp?.target_completion || '' : 'Retainer model',
+          },
+        ].map(s => (
+          <div key={s.label} className="rounded-xl p-2.5"
+            style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+            <p className="text-[9px] uppercase tracking-widest mb-1" style={{ color: 'var(--tc-25)' }}>{s.label}</p>
+            <p className="text-[11px] font-bold" style={{ color: countdown && s.label === 'Handover' ? '#F59E0B' : 'var(--tc-70)' }}>{s.value}</p>
+            <p className="text-[9px] mt-0.5 truncate" style={{ color: 'var(--tc-25)' }}>{s.sub}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* ── Links + Last Comms ── */}
+      <div className="flex items-center justify-between gap-3 pt-1"
+        style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+        <div className="flex items-center gap-2 flex-wrap">
+          {repos.map(r => (
+            <a key={r.name} href={r.url} target="_blank" rel="noopener noreferrer"
+              className="flex items-center gap-1 text-[10px] px-2 py-1 rounded-lg transition-all hover:opacity-80"
+              style={{ background: 'rgba(255,255,255,0.06)', color: 'var(--tc-50)', border: '1px solid rgba(255,255,255,0.09)' }}>
+              <Github className="h-3 w-3" />
+              {r.name}
+            </a>
+          ))}
+          {cp?.platform_url && (
+            <a href={cp.platform_url} target="_blank" rel="noopener noreferrer"
+              className="flex items-center gap-1 text-[10px] px-2 py-1 rounded-lg transition-all hover:opacity-80"
+              style={{ background: `${color}12`, color, border: `1px solid ${color}22` }}>
+              <ExternalLink className="h-3 w-3" />
+              Live app
+            </a>
+          )}
+        </div>
+        {latestEmail ? (
+          <div className="text-right shrink-0">
+            <p className="text-[9px]" style={{ color: 'var(--tc-25)' }}>
+              Last email {timeSince(latestEmail.created_at)}
+            </p>
+            <p className="text-[10px] truncate max-w-[140px]" style={{ color: 'var(--tc-45)' }}>
+              {latestEmail.subject}
+            </p>
+          </div>
+        ) : (
+          <span className="text-[9px]" style={{ color: 'var(--tc-20)' }}>No emails sent yet</span>
+        )}
       </div>
     </div>
   );
@@ -369,8 +299,6 @@ function ClientsView({
   emailsByClient: Record<string, EmailItem[]>;
   pendingEmails: EmailItem[];
 }) {
-  const [selected, setSelected] = useState<string | null>(null);
-
   if (clients.length === 0) {
     return (
       <div style={cardStyle} className="p-12 text-center">
@@ -380,29 +308,16 @@ function ClientsView({
     );
   }
 
-  return (
-    <div className="space-y-2">
-      {clients.map(c => {
-        const emails = emailsByClient[c.slug] || [];
-        const pending = pendingEmails.filter(e => e.client === c.slug).length;
-        const lastActivity = emails[0]?.created_at ?? null;
-        const isSelected = selected === c.id;
+  // Show only real clients (exclude internal AOS entry)
+  const displayClients = clients.filter(c => c.slug !== 'aos');
 
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {displayClients.map(c => {
+        const emails  = emailsByClient[c.slug] || [];
+        const pending = pendingEmails.filter(e => e.client === c.slug).length;
         return (
-          <div key={c.id}>
-            <ClientTile
-              client={c}
-              pendingCount={pending}
-              lastActivity={lastActivity}
-              selected={isSelected}
-              onClick={() => setSelected(isSelected ? null : c.id)}
-            />
-            {isSelected && (
-              <div className="mt-1">
-                <ClientDetail client={c} emails={emails} />
-              </div>
-            )}
-          </div>
+          <ClientCard key={c.id} client={c} emails={emails} pendingCount={pending} />
         );
       })}
     </div>
