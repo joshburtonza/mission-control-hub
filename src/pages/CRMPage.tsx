@@ -5,7 +5,7 @@ import {
   Mail, Globe, Tag, TrendingUp, Users, MessageSquare, Star,
   Send, Clock, CheckCheck, CalendarCheck, Trash2, Linkedin,
   MapPin, Briefcase, BarChart2, ChevronDown, ArrowUpDown,
-  ArrowUp, ArrowDown, Filter, Sparkles, AlertTriangle, Zap,
+  ArrowUp, ArrowDown, Filter, Sparkles, AlertTriangle, Zap, Eye,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -26,6 +26,7 @@ interface OutreachLog {
   body: string;
   sent_at: string;
   gmail_message_id: string | null;
+  tracking_id: string | null;
   opened_at: string | null;
   open_count: number;
 }
@@ -460,15 +461,50 @@ function StageFilterSidebar({
 
 // ── StatsBar ──────────────────────────────────────────────────────────────────
 
-function StatsBar({ leads }: { leads: Lead[] }) {
+function OpenRateDonut({ pct }: { pct: number }) {
+  const r   = 22;
+  const circ = 2 * Math.PI * r;
+  const dash = circ * (pct / 100);
+  const color = pct >= 30 ? '#4ade80' : pct >= 15 ? B : '#f59e0b';
+  return (
+    <svg width="60" height="60" viewBox="0 0 60 60" style={{ transform: 'rotate(-90deg)' }}>
+      {/* Track */}
+      <circle cx="30" cy="30" r={r} fill="none" stroke="var(--s-hover)" strokeWidth="6" />
+      {/* Fill */}
+      <circle
+        cx="30" cy="30" r={r} fill="none"
+        stroke={color} strokeWidth="6"
+        strokeDasharray={`${dash} ${circ}`}
+        strokeLinecap="round"
+        style={{ filter: `drop-shadow(0 0 4px ${color}88)`, transition: 'stroke-dasharray 0.6s ease' }}
+      />
+      {/* Centre text — counter-rotate */}
+      <text
+        x="30" y="30"
+        textAnchor="middle" dominantBaseline="central"
+        style={{ transform: 'rotate(90deg) translateX(0)', fontSize: '11px', fontWeight: 700, fill: color, fontFamily: 'inherit' }}
+        transform="rotate(90, 30, 30)"
+      >
+        {pct}%
+      </text>
+    </svg>
+  );
+}
+
+function StatsBar({ leads, allLogs }: { leads: Lead[]; allLogs: OutreachLog[] }) {
   const stats = useMemo(() => {
     const total     = leads.length;
     const contacted = leads.filter(l => l.last_contacted_at).length;
     const replied   = leads.filter(l => l.reply_received_at).length;
     const won       = leads.filter(l => l.status === 'closed_won').length;
     const replyRate = total > 0 ? Math.round((replied / total) * 100) : 0;
-    return { total, contacted, replied, won, replyRate };
-  }, [leads]);
+
+    const trackedLogs = allLogs.filter(l => l.tracking_id);
+    const openedLogs  = trackedLogs.filter(l => l.opened_at);
+    const openRate    = trackedLogs.length > 0 ? Math.round((openedLogs.length / trackedLogs.length) * 100) : 0;
+
+    return { total, contacted, replied, won, replyRate, openRate };
+  }, [leads, allLogs]);
 
   const items = [
     { label: 'Total',      value: stats.total,     glow: false },
@@ -479,7 +515,7 @@ function StatsBar({ leads }: { leads: Lead[] }) {
   ];
 
   return (
-    <div className="grid grid-cols-5 gap-2">
+    <div className="grid grid-cols-6 gap-2">
       {items.map(s => (
         <div key={s.label} style={CARD} className="flex flex-col items-center justify-center py-3 px-2 gap-0.5">
           <span
@@ -491,6 +527,11 @@ function StatsBar({ leads }: { leads: Lead[] }) {
           <span className="text-[9px] uppercase tracking-widest" style={{ color: 'var(--tc-30)' }}>{s.label}</span>
         </div>
       ))}
+      {/* Open rate donut */}
+      <div style={CARD} className="flex flex-col items-center justify-center py-3 px-2 gap-0.5">
+        <OpenRateDonut pct={stats.openRate} />
+        <span className="text-[9px] uppercase tracking-widest" style={{ color: 'var(--tc-30)' }}>Open rate</span>
+      </div>
     </div>
   );
 }
@@ -671,8 +712,10 @@ function KanbanLeadCard({ lead, logSteps, openedLeads, onSelect }: {
             ) : (
               <span className="text-[9px]" style={{ color: 'var(--tc-20)' }}>not yet contacted</span>
             )}
-            {hasOpened && !hasReply && (
-              <span className="text-[8px] px-1 py-0.5 rounded font-semibold" style={{ background: 'rgba(74,222,128,0.1)', color: '#4ade80' }} title="Opened tracking pixel">👁 seen</span>
+            {hasOpened && contacted && (
+              <span title="Opened email" style={{ display: 'flex', alignItems: 'center' }}>
+                <Eye className="h-3 w-3" style={{ color: '#4ade80', filter: 'drop-shadow(0 0 4px #4ade8088)' }} />
+              </span>
             )}
           </div>
           <div className="flex items-center gap-0.5">
@@ -1931,8 +1974,8 @@ function AddLeadModal({
 
 // ── IndustryGroup ─────────────────────────────────────────────────────────────
 
-function IndustryGroup({ name, leads, onSelect }: {
-  name: string; leads: Lead[]; onSelect: (lead: Lead) => void;
+function IndustryGroup({ name, leads, openedLeads, onSelect }: {
+  name: string; leads: Lead[]; openedLeads: Set<string>; onSelect: (lead: Lead) => void;
 }) {
   const [open, setOpen] = useState(false);
   const replied   = leads.filter(l => l.reply_received_at).length;
@@ -1987,6 +2030,9 @@ function IndustryGroup({ name, leads, onSelect }: {
                 </div>
               </div>
               <div className="flex items-center gap-2 shrink-0">
+                {openedLeads.has(lead.id) && lead.last_contacted_at && (
+                  <Eye className="h-3 w-3" style={{ color: '#4ade80', filter: 'drop-shadow(0 0 4px #4ade8088)' }} title="Opened email" />
+                )}
                 {lead.quality_score > 0 && <ScoreBadge score={lead.quality_score} />}
                 <StatusPill status={lead.status} />
               </div>
@@ -2000,8 +2046,8 @@ function IndustryGroup({ name, leads, onSelect }: {
 
 // ── SourceGroup ───────────────────────────────────────────────────────────────
 
-function SourceGroup({ source, leads, onSelect }: {
-  source: string; leads: Lead[]; onSelect: (lead: Lead) => void;
+function SourceGroup({ source, leads, openedLeads, onSelect }: {
+  source: string; leads: Lead[]; openedLeads: Set<string>; onSelect: (lead: Lead) => void;
 }) {
   const [open, setOpen] = useState(false);
   const replied    = leads.filter(l => l.reply_received_at).length;
@@ -2043,6 +2089,9 @@ function SourceGroup({ source, leads, onSelect }: {
                 </div>
               </div>
               <div className="flex items-center gap-2 shrink-0">
+                {openedLeads.has(lead.id) && lead.last_contacted_at && (
+                  <Eye className="h-3 w-3" style={{ color: '#4ade80', filter: 'drop-shadow(0 0 4px #4ade8088)' }} title="Opened email" />
+                )}
                 {lead.reply_received_at && <Mail className="h-3 w-3" style={{ color: B }} />}
                 <StatusPill status={lead.status} />
               </div>
@@ -2342,7 +2391,7 @@ export default function CRMPage() {
       </div>
 
       {/* ── Stats bar ── */}
-      <StatsBar leads={clientLeads} />
+      <StatsBar leads={clientLeads} allLogs={allLogs} />
 
       {/* ── View tabs ── */}
       <div style={CARD} className="flex items-center gap-1 p-1.5">
@@ -2445,7 +2494,7 @@ export default function CRMPage() {
             </div>
           ) : (
             industryGroups.map(([name, groupLeads]) => (
-              <IndustryGroup key={name} name={name} leads={groupLeads} onSelect={setSelectedLead} />
+              <IndustryGroup key={name} name={name} leads={groupLeads} openedLeads={openedLeads} onSelect={setSelectedLead} />
             ))
           )}
         </div>
@@ -2489,7 +2538,7 @@ export default function CRMPage() {
             </div>
           ) : (
             sourceGroups.map(([src, srcLeads]) => (
-              <SourceGroup key={src} source={src} leads={srcLeads} onSelect={setSelectedLead} />
+              <SourceGroup key={src} source={src} leads={srcLeads} openedLeads={openedLeads} onSelect={setSelectedLead} />
             ))
           )}
         </div>
