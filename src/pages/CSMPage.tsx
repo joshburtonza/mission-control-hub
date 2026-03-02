@@ -1,6 +1,15 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { createClient } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+
+// Clients table has only a `TO anon` RLS policy (no authenticated policy yet).
+// Use a session-less client so requests go as anon role and the policy matches.
+const anonClient = createClient(
+  import.meta.env.VITE_SUPABASE_URL,
+  import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+  { auth: { persistSession: false, autoRefreshToken: false } }
+);
 import {
   CheckCircle, Mail, Clock, MessageSquare, Send,
   ExternalLink, Calendar, Users, Github,
@@ -343,7 +352,7 @@ export default function CSMPage() {
   const fetchData = useCallback(async () => {
     const db = supabase as any;
     const [cRes, pRes, hRes, aRes] = await Promise.all([
-      db.from('clients').select('*').eq('status', 'active').order('created_at', { ascending: true }),
+      (anonClient as any).from('clients').select('*').eq('status', 'active').order('created_at', { ascending: true }),
       db.from('email_queue').select('*').in('status', ['awaiting_approval', 'auto_pending']).order('created_at', { ascending: false }).limit(100),
       db.from('email_queue').select('*').in('status', ['approved', 'rejected', 'sent']).order('created_at', { ascending: false }).limit(50),
       db.from('email_queue').select('*').order('created_at', { ascending: false }).limit(200),
