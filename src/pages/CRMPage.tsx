@@ -26,6 +26,8 @@ interface OutreachLog {
   body: string;
   sent_at: string;
   gmail_message_id: string | null;
+  opened_at: string | null;
+  open_count: number;
 }
 
 interface AIAnalysis {
@@ -518,13 +520,15 @@ function SortButton({ label, sortKey, current, dir, onClick }: {
 
 // ── KanbanLeadCard ────────────────────────────────────────────────────────────
 
-function KanbanLeadCard({ lead, logSteps, onSelect }: {
+function KanbanLeadCard({ lead, logSteps, openedLeads, onSelect }: {
   lead: Lead;
   logSteps: Record<string, number[]>;
+  openedLeads: Set<string>;
   onSelect: (lead: Lead) => void;
 }) {
   const steps      = logSteps[lead.id] || [];
   const hasReply   = !!lead.reply_received_at;
+  const hasOpened  = openedLeads.has(lead.id);
   const contacted  = !!lead.last_contacted_at;
   // Use notes-blob fallback for pre-migration leads
   const nb         = parseNotes(lead.notes);
@@ -659,13 +663,16 @@ function KanbanLeadCard({ lead, logSteps, onSelect }: {
 
         {/* Footer: contacted status + sequence dots */}
         <div className="flex items-center justify-between pt-1 border-t" style={{ borderColor: 'var(--s-divider)' }}>
-          <div>
+          <div className="flex items-center gap-1.5">
             {hasReply ? (
               <span className="text-[9px] font-semibold" style={{ color: '#4ade80' }}>✉ replied {timeSince(lead.reply_received_at)}</span>
             ) : contacted ? (
               <span className="text-[9px]" style={{ color: `${B}99` }}>✓ contacted {timeSince(lead.last_contacted_at)}</span>
             ) : (
               <span className="text-[9px]" style={{ color: 'var(--tc-20)' }}>not yet contacted</span>
+            )}
+            {hasOpened && !hasReply && (
+              <span className="text-[8px] px-1 py-0.5 rounded font-semibold" style={{ background: 'rgba(74,222,128,0.1)', color: '#4ade80' }} title="Opened tracking pixel">👁 seen</span>
             )}
           </div>
           <div className="flex items-center gap-0.5">
@@ -696,9 +703,10 @@ function KanbanLeadCard({ lead, logSteps, onSelect }: {
 
 // ── KanbanBoard ───────────────────────────────────────────────────────────────
 
-function KanbanBoard({ leads, logSteps, onSelect, sortKey, sortDir }: {
+function KanbanBoard({ leads, logSteps, openedLeads, onSelect, sortKey, sortDir }: {
   leads: Lead[];
   logSteps: Record<string, number[]>;
+  openedLeads: Set<string>;
   onSelect: (lead: Lead) => void;
   sortKey: SortKey;
   sortDir: SortDir;
@@ -772,7 +780,7 @@ function KanbanBoard({ leads, logSteps, onSelect, sortKey, sortDir }: {
                 </div>
               ) : (
                 col.map(lead => (
-                  <KanbanLeadCard key={lead.id} lead={lead} logSteps={logSteps} onSelect={onSelect} />
+                  <KanbanLeadCard key={lead.id} lead={lead} logSteps={logSteps} openedLeads={openedLeads} onSelect={onSelect} />
                 ))
               )}
             </div>
@@ -1605,9 +1613,15 @@ function LeadDetailSheet({
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-[11px] font-semibold truncate" style={{ color: 'var(--tc-80)' }}>{log.subject}</p>
-                          <div className="flex items-center gap-2 mt-0.5">
+                          <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                             <span className="text-[9px] font-medium" style={{ color: meta.color }}>{meta.label}</span>
                             <span className="text-[9px]" style={{ color: 'var(--tc-25)' }}>{sentStr}</span>
+                            {log.opened_at && (
+                              <span className="text-[9px] px-1.5 py-0.5 rounded-full font-semibold" style={{ background: 'rgba(74,222,128,0.12)', color: '#4ade80', border: '1px solid rgba(74,222,128,0.25)' }}
+                                title={`Opened ${new Date(log.opened_at).toLocaleDateString('en-ZA', { day:'2-digit', month:'short' })} · ${log.open_count}x`}>
+                                👁 opened{log.open_count > 1 ? ` ${log.open_count}x` : ''}
+                              </span>
+                            )}
                           </div>
                         </div>
                         <ChevronRight
@@ -2101,6 +2115,7 @@ export default function CRMPage() {
   });
   const [leads, setLeads]                   = useState<Lead[]>([]);
   const [logSteps, setLogSteps]             = useState<Record<string, number[]>>({});
+  const [openedLeads, setOpenedLeads]       = useState<Set<string>>(new Set());
   const [allLogs, setAllLogs]               = useState<OutreachLog[]>([]);
   const [loading, setLoading]               = useState(true);
   const [spinning, setSpinning]             = useState(false);
@@ -2167,11 +2182,14 @@ export default function CRMPage() {
       const logs: OutreachLog[] = logsRes.data || [];
       setAllLogs(logs);
       const map: Record<string, number[]> = {};
+      const opened = new Set<string>();
       for (const row of logs) {
         if (!map[row.lead_id]) map[row.lead_id] = [];
         map[row.lead_id].push(row.step);
+        if (row.opened_at) opened.add(row.lead_id);
       }
       setLogSteps(map);
+      setOpenedLeads(opened);
     }
     if (!clientsRes.error && clientsRes.data) setClients(clientsRes.data);
     setLoading(false);
@@ -2408,7 +2426,7 @@ export default function CRMPage() {
               <span className="text-xs">Loading…</span>
             </div>
           ) : (
-            <KanbanBoard leads={filteredLeads} logSteps={logSteps} onSelect={setSelectedLead} sortKey={sortKey} sortDir={sortDir} />
+            <KanbanBoard leads={filteredLeads} logSteps={logSteps} openedLeads={openedLeads} onSelect={setSelectedLead} sortKey={sortKey} sortDir={sortDir} />
           )}
         </div>
       )}
