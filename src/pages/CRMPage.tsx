@@ -255,12 +255,17 @@ function ScoreBadge({ score }: { score: number }) {
 // ── Email status dot ──────────────────────────────────────────────────────────
 
 const EMAIL_STATUS_META: Record<string, { dot: string; label: string; title: string }> = {
-  valid:       { dot: '#4ade80', label: 'verified',    title: 'Email verified valid' },
-  catch_all:   { dot: '#facc15', label: 'catch-all',   title: 'Domain accepts all addresses' },
-  unverified:  { dot: '#94a3b8', label: 'unverified',  title: 'MX exists, not deeply checked' },
+  valid:       { dot: '#4ade80', label: 'verified',     title: 'Email verified — safe to send' },
+  catch_all:   { dot: '#fb923c', label: 'catch-all',   title: 'High bounce risk — domain accepts all, cannot verify address' },
+  unverified:  { dot: '#fb923c', label: 'unverified',  title: 'Not verified — do not send until confirmed' },
+  no_domain:   { dot: '#f87171', label: 'no domain',   title: 'No valid domain — uncontactable' },
   risky:       { dot: '#f87171', label: 'risky',       title: 'Marked risky — will not send' },
   invalid:     { dot: '#f87171', label: 'invalid',     title: 'Dead email — will not send' },
 };
+
+const SAFE_TO_SEND = (s: string | null) => s === 'valid';
+const IS_BOUNCE_RISK = (s: string | null) => s === 'catch_all' || s === 'unverified';
+const IS_DEAD = (s: string | null) => s === 'invalid' || s === 'risky' || s === 'no_domain';
 
 function EmailStatusDot({ status }: { status: string | null }) {
   if (!status) return null;
@@ -647,10 +652,9 @@ function KanbanLeadCard({ lead, logSteps, onSelect }: {
         <div className="flex items-center gap-1.5 text-[10px]" style={{ color: 'var(--tc-30)' }}>
           <Mail className="h-2.5 w-2.5 shrink-0" style={{ color: 'var(--tc-20)' }} />
           <span className="truncate" style={{ color: 'var(--tc-40)' }}>{lead.email}</span>
-          {lead.email_status === 'valid'      && <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: '#4ade80' }} title="verified" />}
-          {lead.email_status === 'catch_all'  && <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: '#facc15' }} title="catch-all" />}
-          {lead.email_status === 'unverified' && <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: '#94a3b8' }} title="unverified" />}
-          {lead.email_status === 'invalid'    && <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: '#f87171' }} title="invalid" />}
+          {SAFE_TO_SEND(lead.email_status)    && <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: '#4ade80' }} title="Verified" />}
+          {IS_BOUNCE_RISK(lead.email_status)  && <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: '#fb923c' }} title={EMAIL_STATUS_META[lead.email_status!]?.title} />}
+          {IS_DEAD(lead.email_status)         && <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: '#f87171' }} title={EMAIL_STATUS_META[lead.email_status!]?.title} />}
         </div>
 
         {/* Footer: contacted status + sequence dots */}
@@ -815,7 +819,8 @@ function LeadTable({ leads, logSteps, onSelect }: {
         const stepsCount  = steps.length;
         const loc         = locationStr(lead);
         const flag        = countryFlag(lead.location_country);
-        const isInvalid   = lead.email_status === 'invalid' || lead.email_status === 'risky';
+        const isInvalid   = IS_DEAD(lead.email_status);
+        const isBounceRisk = IS_BOUNCE_RISK(lead.email_status);
 
         return (
           <div
@@ -863,6 +868,11 @@ function LeadTable({ leads, logSteps, onSelect }: {
                   {isInvalid && (
                     <span className="text-[8px] px-1.5 py-0.5 rounded-full" style={{ background: 'rgba(248,113,113,0.1)', color: '#f87171', border: '1px solid rgba(248,113,113,0.25)' }}>
                       {lead.email_status}
+                    </span>
+                  )}
+                  {isBounceRisk && (
+                    <span className="text-[8px] px-1.5 py-0.5 rounded-full" style={{ background: 'rgba(251,146,60,0.1)', color: '#fb923c', border: '1px solid rgba(251,146,60,0.25)' }}>
+                      bounce risk
                     </span>
                   )}
                 </div>
@@ -974,14 +984,18 @@ function LeadTable({ leads, logSteps, onSelect }: {
               <span className="flex items-center gap-1.5 text-[10px] ml-auto" style={{ color: 'var(--tc-30)' }}>
                 <Mail className="h-2.5 w-2.5 shrink-0" style={{ color: 'var(--tc-20)' }} />
                 <span className="truncate max-w-[160px]" style={{ color: 'var(--tc-40)' }}>{lead.email}</span>
-                {lead.email_status === 'valid' && (
-                  <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: '#4ade80' }} title="Email verified" />
+                {SAFE_TO_SEND(lead.email_status) && (
+                  <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: '#4ade80' }} title="Email verified — safe to send" />
                 )}
-                {lead.email_status === 'catch_all' && (
-                  <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: '#facc15' }} title="Catch-all domain" />
+                {IS_BOUNCE_RISK(lead.email_status) && (
+                  <span className="text-[8px] px-1 py-0.5 rounded font-semibold shrink-0" style={{ background: 'rgba(251,146,60,0.15)', color: '#fb923c' }} title={EMAIL_STATUS_META[lead.email_status!]?.title}>
+                    bounce risk
+                  </span>
                 )}
-                {lead.email_status === 'unverified' && (
-                  <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: '#94a3b8' }} title="Unverified" />
+                {IS_DEAD(lead.email_status) && (
+                  <span className="text-[8px] px-1 py-0.5 rounded font-semibold shrink-0" style={{ background: 'rgba(248,113,113,0.15)', color: '#f87171' }} title={EMAIL_STATUS_META[lead.email_status!]?.title}>
+                    {lead.email_status}
+                  </span>
                 )}
                 {/* Outreach summary */}
                 {stepsCount > 0 && (
@@ -2190,9 +2204,9 @@ export default function CRMPage() {
   };
 
   const handleDeleteInvalid = async () => {
-    const invalid = leads.filter(l => l.email_status === 'invalid' || l.email_status === 'risky');
+    const invalid = leads.filter(l => IS_DEAD(l.email_status) || IS_BOUNCE_RISK(l.email_status));
     if (invalid.length === 0) { toast.info('No invalid/risky leads to delete'); return; }
-    if (!confirm(`Delete ${invalid.length} invalid/risky leads? This cannot be undone.`)) return;
+    if (!confirm(`Delete ${invalid.length} unverified/risky leads? This cannot be undone.`)) return;
     setDeletingInvalid(true);
     const ids = invalid.map(l => l.id);
     const { error } = await (supabase as any).from('leads').delete().in('id', ids);
@@ -2235,7 +2249,7 @@ export default function CRMPage() {
   const visibleLeads = useMemo(() => filteredLeads.slice(0, visibleCount), [filteredLeads, visibleCount]);
 
   const invalidCount = useMemo(() =>
-    clientLeads.filter(l => l.email_status === 'invalid' || l.email_status === 'risky').length,
+    clientLeads.filter(l => IS_DEAD(l.email_status) || IS_BOUNCE_RISK(l.email_status)).length,
   [clientLeads]);
 
   // ── Industry groups (use industry column + tags fallback) ──────────────────
