@@ -34,6 +34,12 @@ interface FinanceTransaction {
   id: string; type: 'income' | 'expense'; amount: number;
   category: string | null; description: string | null;
   date: string; notes: string | null; created_at: string;
+  account_type: 'business' | 'personal' | null;
+  balance_after: number | null;
+  fnb_tx_id: string | null;
+  reference: string | null;
+  matched_client: string | null;
+  matched_sub: string | null;
 }
 
 const INCOME_CATS  = ['Ascend LC', 'Race Technik', 'Favlog', 'Vanta Studios', 'Other'];
@@ -401,6 +407,7 @@ export default function Finances() {
   const [txnsTableExists, setTxnsTable] = useState(true);
   const [showLogModal, setShowLogModal] = useState(false);
   const [expandedMonth, setExpandedMonth] = useState<string | null>(null);
+  const [txAcctFilter, setTxAcctFilter] = useState<'all' | 'business' | 'personal'>('all');
 
   // Cast for tables not yet in generated types
   const db = supabase as any;
@@ -1469,25 +1476,71 @@ export default function Finances() {
       {/* ══ Row 7: Monthly Transaction Log ══ */}
       {txnsTableExists ? (
         (() => {
-          if (txns.length === 0) return (
-            <div style={card} className="p-8 text-center">
-              <p className="text-sm font-semibold" style={{ color: txt.body }}>No transactions logged yet</p>
-              <p className="text-[11px] mt-1" style={{ color: txt.muted }}>Tap + to log your first income or expense</p>
+          // Filter by account type
+          const visibleTxns = txAcctFilter === 'all'
+            ? txns
+            : txns.filter(t => (t.account_type || 'business') === txAcctFilter);
+
+          if (visibleTxns.length === 0) return (
+            <div style={card}>
+              {/* Account filter header */}
+              <div className="px-5 py-4 flex items-center justify-between" style={{ borderBottom: `1px solid ${txt.divider}` }}>
+                <div>
+                  <p className="text-sm font-semibold" style={{ color: txt.head }}>FNB Transactions</p>
+                  <p className="text-[11px] mt-0.5" style={{ color: txt.muted }}>No transactions logged yet</p>
+                </div>
+                <div className="flex gap-1.5">
+                  {(['all', 'business', 'personal'] as const).map(f => (
+                    <button key={f} onClick={() => setTxAcctFilter(f)}
+                      className="text-[10px] px-2.5 py-1 rounded-full capitalize"
+                      style={{ border: 'none', cursor: 'pointer', fontWeight: txAcctFilter === f ? 700 : 400,
+                        background: txAcctFilter === f ? B1 : (isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)'),
+                        color: txAcctFilter === f ? '#fff' : txt.muted }}>
+                      {f}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="p-8 text-center">
+                <p className="text-[11px]" style={{ color: txt.muted }}>Tap + to log your first income or expense</p>
+              </div>
             </div>
           );
+
           const byMonth: Record<string, FinanceTransaction[]> = {};
-          for (const t of txns) {
+          for (const t of visibleTxns) {
             const m = t.date.slice(0, 7);
             if (!byMonth[m]) byMonth[m] = [];
             byMonth[m].push(t);
           }
           const months = Object.keys(byMonth).sort((a, b) => b.localeCompare(a));
           const currentMonth = new Date().toISOString().slice(0, 7);
+
+          // Category badge colours
+          const catColour: Record<string, string> = {
+            Income: '#4ade80', Subscription: '#a78bfa', Hardware: '#fb923c',
+            Drawings: '#f87171', 'Bank Fees': '#94a3b8', Other: '#fbbf24',
+          };
+
           return (
             <div style={card}>
-              <div className="px-5 py-4" style={{ borderBottom: `1px solid ${txt.divider}` }}>
-                <p className="text-sm font-semibold" style={{ color: txt.head }}>Monthly Log</p>
-                <p className="text-[11px] mt-0.5" style={{ color: txt.muted }}>{txns.length} transaction{txns.length !== 1 ? 's' : ''} logged</p>
+              {/* Header with account filter */}
+              <div className="px-5 py-4 flex items-center justify-between" style={{ borderBottom: `1px solid ${txt.divider}` }}>
+                <div>
+                  <p className="text-sm font-semibold" style={{ color: txt.head }}>FNB Transactions</p>
+                  <p className="text-[11px] mt-0.5" style={{ color: txt.muted }}>{visibleTxns.length} transaction{visibleTxns.length !== 1 ? 's' : ''}</p>
+                </div>
+                <div className="flex gap-1.5">
+                  {(['all', 'business', 'personal'] as const).map(f => (
+                    <button key={f} onClick={() => setTxAcctFilter(f)}
+                      className="text-[10px] px-2.5 py-1 rounded-full capitalize"
+                      style={{ border: 'none', cursor: 'pointer', fontWeight: txAcctFilter === f ? 700 : 400,
+                        background: txAcctFilter === f ? B1 : (isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)'),
+                        color: txAcctFilter === f ? '#fff' : txt.muted }}>
+                      {f}
+                    </button>
+                  ))}
+                </div>
               </div>
               {months.map(m => {
                 const mTxns   = byMonth[m];
@@ -1496,6 +1549,8 @@ export default function Finances() {
                 const mNet    = mIn - mOut;
                 const isOpen  = expandedMonth !== null ? expandedMonth === m : m === currentMonth;
                 const label   = new Date(m + '-02').toLocaleDateString('en-ZA', { month: 'long', year: 'numeric' });
+                // Last balance_after in the month as closing balance proxy
+                const closingBal = [...mTxns].sort((a, b) => b.date.localeCompare(a.date)).find(t => t.balance_after != null)?.balance_after;
                 return (
                   <div key={m} style={{ borderTop: `1px solid ${txt.divider}` }}>
                     <button
@@ -1513,28 +1568,51 @@ export default function Finances() {
                       <div className="flex items-center gap-4 shrink-0">
                         <span className="text-[11px] hidden sm:block" style={{ color: '#4ade80' }}>+{fmtFull(mIn)}</span>
                         <span className="text-[11px] hidden sm:block" style={{ color: '#f87171' }}>{fmtFull(mOut)}</span>
+                        {closingBal != null && <span className="text-[10px] hidden md:block" style={{ color: txt.muted }}>bal {fmtShort(closingBal)}</span>}
                         <span className="text-[10px]" style={{ color: txt.muted }}>{isOpen ? '▲' : '▼'}</span>
                       </div>
                     </button>
                     {isOpen && (
                       <div className="px-5 pb-3 space-y-0">
-                        {[...mTxns].sort((a, b) => b.date.localeCompare(a.date)).map(t => (
-                          <div key={t.id} className="flex items-center gap-3 py-2.5" style={{ borderTop: `1px solid ${txt.divider}` }}>
-                            <div className="h-2 w-2 rounded-full shrink-0" style={{ background: t.type === 'income' ? '#4ade80' : '#f87171' }} />
+                        {[...mTxns].sort((a, b) => b.date.localeCompare(a.date)).map(t => {
+                          const catColor = catColour[t.category || ''] || txt.muted;
+                          const isFnbAuto = !!t.fnb_tx_id;
+                          return (
+                          <div key={t.id} className="flex items-start gap-3 py-2.5" style={{ borderTop: `1px solid ${txt.divider}` }}>
+                            <div className="h-2 w-2 rounded-full shrink-0 mt-1.5" style={{ background: t.type === 'income' ? '#4ade80' : '#f87171' }} />
                             <div className="flex-1 min-w-0">
-                              <p className="text-[12px] truncate" style={{ color: txt.body }}>{t.description || t.category || t.type}</p>
-                              {t.category && t.description && <p className="text-[10px]" style={{ color: txt.muted }}>{t.category}</p>}
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <p className="text-[12px] truncate" style={{ color: txt.body }}>{t.description || t.category || t.type}</p>
+                                {t.category && (
+                                  <span className="text-[9px] px-1.5 py-0.5 rounded shrink-0"
+                                    style={{ background: `${catColor}20`, color: catColor, border: `1px solid ${catColor}40` }}>
+                                    {t.category}
+                                  </span>
+                                )}
+                                {isFnbAuto && (
+                                  <span className="text-[9px] px-1.5 py-0.5 rounded shrink-0"
+                                    style={{ background: 'rgba(75,158,255,0.1)', color: B1, border: '1px solid rgba(75,158,255,0.25)' }}>
+                                    FNB
+                                  </span>
+                                )}
+                              </div>
+                              {t.matched_client && <p className="text-[10px]" style={{ color: txt.muted }}>{t.matched_client}</p>}
+                              {t.matched_sub    && <p className="text-[10px]" style={{ color: txt.muted }}>{t.matched_sub}</p>}
                             </div>
                             <div className="text-right shrink-0">
                               <p className="text-[12px] font-semibold tabular-nums" style={{ color: t.type === 'income' ? '#4ade80' : '#f87171' }}>
                                 {t.type === 'income' ? '+' : '-'}{fmtFull(t.amount)}
                               </p>
+                              {t.balance_after != null && (
+                                <p className="text-[9px] tabular-nums" style={{ color: txt.muted }}>bal {fmtShort(t.balance_after)}</p>
+                              )}
                               <p className="text-[9px]" style={{ color: txt.muted }}>
                                 {new Date(t.date + 'T12:00:00').toLocaleDateString('en-ZA', { day: '2-digit', month: 'short' })}
                               </p>
                             </div>
                           </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
                   </div>

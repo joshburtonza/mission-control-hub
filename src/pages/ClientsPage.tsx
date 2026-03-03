@@ -3,11 +3,19 @@ import { useTheme } from 'next-themes';
 import { supabase } from '@/integrations/supabase/client';
 import {
   Activity, Pause, Play, AlertTriangle, CheckCircle,
-  RefreshCw, ChevronDown, ChevronUp, DollarSign, Archive,
+  RefreshCw, ChevronDown, ChevronUp, DollarSign, Archive, Zap,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 /* ── Types ── */
+interface PipelineItem {
+  name: string;
+  status: string;
+  type?: string;
+  description?: string;
+  added?: string;
+}
+
 interface Client {
   id: string;
   slug: string;
@@ -21,6 +29,7 @@ interface Client {
     contract?: { retainer_monthly?: number };
     team?: Array<{ name: string; role: string; email: string }>;
     current_project?: { phase?: string; platform_url?: string };
+    pipeline?: PipelineItem[];
   } | null;
   updated_at: string | null;
 }
@@ -348,6 +357,29 @@ export default function ClientsPage() {
                     style={{ background: 'rgba(251,191,36,0.06)', border: '1px solid rgba(251,191,36,0.15)' }}>
                     <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" style={{ color: '#FBBF24' }} />
                     <p className="text-[11px]" style={{ color: '#FBBF24' }}>{msg}</p>
+                  </div>
+                )}
+
+                {/* Pipeline items */}
+                {(client.profile?.pipeline ?? []).length > 0 && (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {(client.profile!.pipeline!).map((item, i) => {
+                      const statusColors: Record<string, { bg: string; color: string; border: string }> = {
+                        scoping:     { bg: 'rgba(168,85,247,0.12)',  color: '#C084FC', border: 'rgba(168,85,247,0.25)' },
+                        in_progress: { bg: 'rgba(75,158,255,0.12)',  color: '#4B9EFF', border: 'rgba(75,158,255,0.25)' },
+                        done:        { bg: 'rgba(74,222,128,0.12)',  color: '#4ADE80', border: 'rgba(74,222,128,0.25)' },
+                      };
+                      const c = statusColors[item.status] ?? statusColors.scoping;
+                      return (
+                        <div key={i} className="flex items-center gap-1.5 px-2.5 py-1 rounded-full"
+                          style={{ background: c.bg, border: `1px solid ${c.border}` }}
+                          title={item.description}>
+                          <Zap className="h-2.5 w-2.5 shrink-0" style={{ color: c.color }} />
+                          <span className="text-[10px] font-semibold" style={{ color: c.color }}>{item.name}</span>
+                          <span className="text-[9px] uppercase tracking-wider opacity-70" style={{ color: c.color }}>{item.status}</span>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>
