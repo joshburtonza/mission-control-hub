@@ -2,30 +2,37 @@ import { useState, useEffect } from 'react';
 import { useTheme } from 'next-themes';
 import { supabase } from '@/integrations/supabase/client';
 import {
-  Activity, Pause, Square, Play, AlertTriangle, CheckCircle,
-  Clock, Wifi, WifiOff, RefreshCw, ChevronDown, ChevronUp,
+  Activity, Pause, Play, AlertTriangle, CheckCircle,
+  RefreshCw, ChevronDown, ChevronUp, DollarSign, Archive,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 /* ── Types ── */
-interface ClientOS {
+interface Client {
   id: string;
   slug: string;
   name: string;
-  status: 'active' | 'paused' | 'stopped';
-  last_heartbeat: string | null;
-  mac_hostname: string | null;
-  retainer_status: 'active' | 'overdue' | 'cancelled';
-  monthly_amount: number;
+  status: 'active' | 'paused' | 'archived';
   notes: string | null;
-  status_changed_at: string | null;
-  status_changed_by: string | null;
+  contact_person: string | null;
+  project_name: string | null;
+  email_addresses: string[] | null;
+  profile: {
+    contract?: { retainer_monthly?: number };
+    team?: Array<{ name: string; role: string; email: string }>;
+    current_project?: { phase?: string; platform_url?: string };
+  } | null;
+  updated_at: string | null;
 }
 
-const B1 = '#4B9EFF';
+function extractPauseMsg(notes: string | null): string | null {
+  if (!notes) return null;
+  const line = notes.split('\n').find(l => l.startsWith('PAUSE_MSG:'));
+  return line ? line.replace('PAUSE_MSG:', '').trim() : null;
+}
 
-function fmtFull(n: number) {
-  return 'R' + Math.round(n).toLocaleString('en-ZA');
+function getMonthlyAmount(client: Client): number {
+  return client.profile?.contract?.retainer_monthly ?? 0;
 }
 
 function timeSince(iso: string | null): string {
@@ -40,17 +47,14 @@ function timeSince(iso: string | null): string {
   return 'just now';
 }
 
-function isOnline(iso: string | null): boolean {
-  if (!iso) return false;
-  return Date.now() - new Date(iso).getTime() < 10 * 60 * 1000; // 10 min
-}
+const B1 = '#4B9EFF';
 
 /* ── Status badge ── */
-function StatusBadge({ status }: { status: ClientOS['status'] }) {
+function StatusBadge({ status }: { status: Client['status'] }) {
   const cfg = {
-    active:  { bg: 'rgba(74,222,128,0.15)', color: '#4ADE80', border: 'rgba(74,222,128,0.3)', label: 'Active' },
-    paused:  { bg: 'rgba(251,191,36,0.15)',  color: '#FBBF24', border: 'rgba(251,191,36,0.3)', label: 'Paused' },
-    stopped: { bg: 'rgba(248,113,113,0.15)', color: '#F87171', border: 'rgba(248,113,113,0.3)', label: 'Stopped' },
+    active:   { bg: 'rgba(74,222,128,0.15)',  color: '#4ADE80', border: 'rgba(74,222,128,0.3)',  label: 'Active'   },
+    paused:   { bg: 'rgba(251,191,36,0.15)',  color: '#FBBF24', border: 'rgba(251,191,36,0.3)',  label: 'Paused'   },
+    archived: { bg: 'rgba(148,163,184,0.15)', color: '#94A3B8', border: 'rgba(148,163,184,0.3)', label: 'Archived' },
   }[status];
   return (
     <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full"
@@ -60,16 +64,6 @@ function StatusBadge({ status }: { status: ClientOS['status'] }) {
   );
 }
 
-/* ── Retainer badge ── */
-function RetainerBadge({ status }: { status: ClientOS['retainer_status'] }) {
-  const cfg = {
-    active:    { color: '#4ADE80', label: 'Paid' },
-    overdue:   { color: '#FBBF24', label: 'Overdue' },
-    cancelled: { color: '#F87171', label: 'Cancelled' },
-  }[status];
-  return <span className="text-[10px] font-medium" style={{ color: cfg.color }}>{cfg.label}</span>;
-}
-
 /* ════════════════════════════════════════
    Page
 ════════════════════════════════════════ */
@@ -77,18 +71,29 @@ export default function ClientsPage() {
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme !== 'light';
 
-  const [clients, setClients]   = useState<ClientOS[]>([]);
+  const [clients, setClients]   = useState<Client[]>([]);
   const [loading, setLoading]   = useState(true);
   const [spin, setSpin]         = useState(false);
   const [changing, setChanging] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
-
-  const db = supabase as any;
+  const [pauseMsg, setPauseMsg] = useState<Record<string, string>>({});
 
   const load = async (showSpin = false) => {
     if (showSpin) setSpin(true);
-    const { data } = await db.from('client_os_registry').select('*').order('name');
-    if (data) setClients(data as ClientOS[]);
+    const { data } = await supabase
+      .from('clients')
+      .select('id,slug,name,status,notes,contact_person,project_name,email_addresses,profile,updated_at')
+      .neq('slug', 'aos')           // hide internal AOS entry
+      .order('name');
+    if (data) {
+      setClients(data as unknown as Client[]);
+      const msgs: Record<string, string> = {};
+      for (const c of data) {
+        const msg = extractPauseMsg((c as Client).notes);
+        if (msg) msgs[(c as Client).slug] = msg;
+      }
+      setPauseMsg(msgs);
+    }
     setLoading(false);
     if (showSpin) setTimeout(() => setSpin(false), 400);
   };
@@ -96,20 +101,55 @@ export default function ClientsPage() {
   useEffect(() => {
     load();
     const ch = supabase.channel('clients-page')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'client_os_registry' }, () => load())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'clients' }, () => load())
       .subscribe();
     return () => { supabase.removeChannel(ch); };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const setStatus = async (slug: string, newStatus: ClientOS['status']) => {
+  const setStatus = async (slug: string, newStatus: Client['status'], msg?: string) => {
     setChanging(slug);
-    await db.from('client_os_registry').update({
+    const now = new Date().toISOString();
+
+    // Build notes update — preserve existing notes, update PAUSE_MSG prefix
+    const existing = clients.find(c => c.slug === slug);
+    let notes = existing?.notes || '';
+    // Remove any existing PAUSE_MSG line
+    notes = notes.split('\n').filter(l => !l.startsWith('PAUSE_MSG:')).join('\n');
+
+    if (newStatus === 'paused' && msg) {
+      notes = `PAUSE_MSG:${msg}\n[${now.slice(0,10)}] Paused via Mission Control\n${notes}`.trim();
+    } else if (newStatus === 'active') {
+      notes = `[${now.slice(0,10)}] Resumed via Mission Control\n${notes}`.trim();
+    }
+
+    await supabase.from('clients').update({
       status: newStatus,
-      status_changed_at: new Date().toISOString(),
-      status_changed_by: 'mission_control',
+      notes,
+      updated_at: now,
     }).eq('slug', slug);
-    setClients(p => p.map(c => c.slug === slug ? { ...c, status: newStatus } : c));
+
+    setClients(p => p.map(c => c.slug === slug ? { ...c, status: newStatus, notes } : c));
+    if (newStatus === 'paused' && msg) {
+      setPauseMsg(p => ({ ...p, [slug]: msg }));
+    } else if (newStatus === 'active') {
+      setPauseMsg(p => { const n = { ...p }; delete n[slug]; return n; });
+    }
     setChanging(null);
+  };
+
+  /* ── Pause dialog ── */
+  const [pauseTarget, setPauseTarget] = useState<string | null>(null);
+  const [pauseReason, setPauseReason] = useState('');
+
+  const handlePauseClick = (slug: string) => {
+    setPauseTarget(slug);
+    setPauseReason('');
+  };
+
+  const confirmPause = async () => {
+    if (!pauseTarget) return;
+    await setStatus(pauseTarget, 'paused', pauseReason || 'Service temporarily paused. Contact Amalfi AI.');
+    setPauseTarget(null);
   };
 
   /* ── Shared styles ── */
@@ -128,21 +168,20 @@ export default function ClientsPage() {
   } as React.CSSProperties;
 
   const txt = {
-    label:       isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.4)',
-    body:        isDark ? 'rgba(255,255,255,0.7)'  : 'rgba(0,0,0,0.7)',
-    muted:       isDark ? 'rgba(255,255,255,0.2)'  : 'rgba(0,0,0,0.3)',
-    head:        isDark ? '#ffffff'                 : '#111111',
-    sub:         isDark ? 'rgba(255,255,255,0.5)'  : 'rgba(0,0,0,0.5)',
-    divider:     isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.06)',
-    inputBg:     isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)',
+    label:   isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.4)',
+    body:    isDark ? 'rgba(255,255,255,0.7)'  : 'rgba(0,0,0,0.7)',
+    muted:   isDark ? 'rgba(255,255,255,0.2)'  : 'rgba(0,0,0,0.3)',
+    head:    isDark ? '#ffffff'                 : '#111111',
+    sub:     isDark ? 'rgba(255,255,255,0.5)'  : 'rgba(0,0,0,0.5)',
+    divider: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.06)',
+    inputBg: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)',
   };
 
-  /* ── Derived ── */
-  const active  = clients.filter(c => c.status === 'active').length;
-  const paused  = clients.filter(c => c.status === 'paused').length;
-  const stopped = clients.filter(c => c.status === 'stopped').length;
-  const totalMRR = clients.reduce((s, c) => s + (c.monthly_amount || 0), 0);
-  const onlineCount = clients.filter(c => isOnline(c.last_heartbeat)).length;
+  const activeClients  = clients.filter(c => c.status === 'active').length;
+  const pausedClients  = clients.filter(c => c.status === 'paused').length;
+  const totalMRR       = clients
+    .filter(c => c.status === 'active')
+    .reduce((s, c) => s + getMonthlyAmount(c), 0);
 
   if (loading) return (
     <div className="flex items-center justify-center h-64">
@@ -157,31 +196,28 @@ export default function ClientsPage() {
       {/* ── Header stats ── */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[
-          { label: 'Total Clients', value: clients.length, icon: Activity, color: B1 },
-          { label: 'Active',        value: active,         icon: CheckCircle, color: '#4ADE80' },
-          { label: 'Online Now',    value: onlineCount,    icon: Wifi,        color: '#4ADE80' },
-          { label: 'Monthly MRR',   value: fmtFull(totalMRR), icon: null,    color: B1 },
+          { label: 'Total Clients', value: clients.length,          icon: Activity,      color: B1 },
+          { label: 'Active',        value: activeClients,            icon: CheckCircle,   color: '#4ADE80' },
+          { label: 'Paused',        value: pausedClients,            icon: Pause,         color: '#FBBF24' },
+          { label: 'Active MRR',    value: `R${Math.round(totalMRR).toLocaleString('en-ZA')}`, icon: DollarSign, color: B1 },
         ].map(stat => (
           <div key={stat.label} className="p-4" style={card}>
             <div className="flex items-center justify-between mb-2">
               <span className="text-[10px] uppercase tracking-widest" style={{ color: txt.label }}>{stat.label}</span>
-              {stat.icon && <stat.icon className="h-3.5 w-3.5" style={{ color: stat.color }} />}
+              <stat.icon className="h-3.5 w-3.5" style={{ color: stat.color }} />
             </div>
             <p className="text-2xl font-bold tabular-nums" style={{ color: txt.head }}>{stat.value}</p>
           </div>
         ))}
       </div>
 
-      {/* ── Kill Switch Summary ── */}
-      {(paused > 0 || stopped > 0) && (
+      {/* ── Kill switch alert ── */}
+      {pausedClients > 0 && (
         <div className="px-4 py-3 rounded-xl flex items-center gap-3"
           style={{ background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.2)' }}>
           <AlertTriangle className="h-4 w-4 shrink-0" style={{ color: '#FBBF24' }} />
           <p className="text-[12px]" style={{ color: '#FBBF24' }}>
-            {paused > 0 && `${paused} client${paused > 1 ? 's' : ''} paused`}
-            {paused > 0 && stopped > 0 && ' · '}
-            {stopped > 0 && `${stopped} client${stopped > 1 ? 's' : ''} stopped`}
-            {' — kill switch active'}
+            {pausedClients} client{pausedClients > 1 ? 's' : ''} paused — web app showing maintenance page, agents skipping tasks
           </p>
         </div>
       )}
@@ -189,60 +225,45 @@ export default function ClientsPage() {
       {/* ── Client cards ── */}
       <div className="space-y-3">
         {clients.map(client => {
-          const online = isOnline(client.last_heartbeat);
           const isExpanded = expanded === client.slug;
           const isChanging = changing === client.slug;
+          const monthly    = getMonthlyAmount(client);
+          const msg        = pauseMsg[client.slug];
+          const isPaused   = client.status === 'paused';
 
           return (
             <div key={client.slug} style={{ ...card, borderRadius: '16px' }}>
-              {/* Main row */}
+              {/* ── Main row ── */}
               <div className="px-5 py-4">
                 <div className="flex items-center justify-between gap-4">
 
                   {/* Left: identity */}
                   <div className="flex items-center gap-3 min-w-0">
-                    {/* Online indicator */}
-                    <div className="relative shrink-0">
-                      <div className="h-9 w-9 rounded-xl flex items-center justify-center"
-                        style={{ background: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)' }}>
-                        {online
-                          ? <Wifi className="h-4 w-4" style={{ color: B1 }} />
-                          : <WifiOff className="h-4 w-4" style={{ color: txt.muted }} />
-                        }
-                      </div>
-                      <div className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2"
-                        style={{
-                          background: online ? '#4ADE80' : txt.muted,
-                          borderColor: isDark ? '#0a0a0a' : '#fff',
-                          boxShadow: online && isDark ? '0 0 6px #4ADE80' : 'none',
-                        }} />
+                    <div className="h-9 w-9 rounded-xl flex items-center justify-center shrink-0 font-bold text-[13px]"
+                      style={{
+                        background: isPaused ? 'rgba(251,191,36,0.12)' : 'rgba(75,158,255,0.12)',
+                        color:      isPaused ? '#FBBF24' : B1,
+                        border:     `1px solid ${isPaused ? 'rgba(251,191,36,0.2)' : 'rgba(75,158,255,0.2)'}`,
+                      }}>
+                      {client.name.slice(0, 2).toUpperCase()}
                     </div>
                     <div className="min-w-0">
                       <p className="text-[14px] font-semibold truncate" style={{ color: txt.head }}>{client.name}</p>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <span className="text-[10px]" style={{ color: txt.muted }}>
-                          {client.mac_hostname || client.slug}
-                        </span>
-                        {client.last_heartbeat && (
-                          <>
-                            <span style={{ color: txt.muted, fontSize: 8 }}>·</span>
-                            <Clock className="h-2.5 w-2.5 shrink-0" style={{ color: txt.muted }} />
-                            <span className="text-[10px]" style={{ color: txt.muted }}>
-                              {timeSince(client.last_heartbeat)}
-                            </span>
-                          </>
-                        )}
-                      </div>
+                      <p className="text-[10px] truncate" style={{ color: txt.muted }}>
+                        {client.project_name || client.slug}
+                        {client.contact_person && ` · ${client.contact_person}`}
+                      </p>
                     </div>
                   </div>
 
-                  {/* Center: status + retainer */}
+                  {/* Center */}
                   <div className="hidden md:flex items-center gap-3">
                     <StatusBadge status={client.status} />
-                    <RetainerBadge status={client.retainer_status} />
-                    <span className="text-[12px] font-medium" style={{ color: txt.sub }}>
-                      {fmtFull(client.monthly_amount)}/mo
-                    </span>
+                    {monthly > 0 && (
+                      <span className="text-[12px] font-medium" style={{ color: txt.sub }}>
+                        R{Math.round(monthly).toLocaleString('en-ZA')}/mo
+                      </span>
+                    )}
                   </div>
 
                   {/* Right: kill switch buttons */}
@@ -252,13 +273,13 @@ export default function ClientsPage() {
                         style={{ borderColor: B1, borderTopColor: 'transparent' }} />
                     ) : (
                       <>
+                        {/* Resume */}
                         <button
                           disabled={client.status === 'active'}
                           onClick={() => setStatus(client.slug, 'active')}
-                          title="Resume — all agents run"
-                          className={cn(
-                            'p-2 rounded-lg transition-all',
-                            client.status === 'active' ? 'opacity-30 cursor-not-allowed' : 'hover:opacity-80'
+                          title="Resume — restore full access"
+                          className={cn('p-2 rounded-lg transition-all',
+                            client.status !== 'active' ? 'hover:opacity-80' : 'opacity-30 cursor-not-allowed'
                           )}
                           style={{
                             background: client.status !== 'active' ? 'rgba(74,222,128,0.15)' : txt.inputBg,
@@ -267,13 +288,14 @@ export default function ClientsPage() {
                           }}>
                           <Play className="h-3.5 w-3.5" />
                         </button>
+
+                        {/* Pause */}
                         <button
                           disabled={client.status === 'paused'}
-                          onClick={() => setStatus(client.slug, 'paused')}
-                          title="Pause — outbound agents stop, monitoring stays"
-                          className={cn(
-                            'p-2 rounded-lg transition-all',
-                            client.status === 'paused' ? 'opacity-30 cursor-not-allowed' : 'hover:opacity-80'
+                          onClick={() => handlePauseClick(client.slug)}
+                          title="Pause — web app blocked, agents stop"
+                          className={cn('p-2 rounded-lg transition-all',
+                            client.status !== 'paused' ? 'hover:opacity-80' : 'opacity-30 cursor-not-allowed'
                           )}
                           style={{
                             background: client.status === 'paused' ? 'rgba(251,191,36,0.15)' : txt.inputBg,
@@ -282,75 +304,79 @@ export default function ClientsPage() {
                           }}>
                           <Pause className="h-3.5 w-3.5" />
                         </button>
+
+                        {/* Archive (end of engagement) */}
                         <button
-                          disabled={client.status === 'stopped'}
-                          onClick={() => setStatus(client.slug, 'stopped')}
-                          title="Stop — all agents killed except daemon"
-                          className={cn(
-                            'p-2 rounded-lg transition-all',
-                            client.status === 'stopped' ? 'opacity-30 cursor-not-allowed' : 'hover:opacity-80'
+                          disabled={client.status === 'archived'}
+                          onClick={() => setStatus(client.slug, 'archived')}
+                          title="Archive — end of engagement, remove from system"
+                          className={cn('p-2 rounded-lg transition-all',
+                            client.status !== 'archived' ? 'hover:opacity-80' : 'opacity-30 cursor-not-allowed'
                           )}
                           style={{
-                            background: client.status === 'stopped' ? 'rgba(248,113,113,0.15)' : txt.inputBg,
-                            border: `1px solid ${client.status === 'stopped' ? 'rgba(248,113,113,0.3)' : 'transparent'}`,
-                            color: client.status === 'stopped' ? '#F87171' : txt.muted,
+                            background: client.status === 'archived' ? 'rgba(148,163,184,0.15)' : txt.inputBg,
+                            border: `1px solid ${client.status === 'archived' ? 'rgba(148,163,184,0.3)' : 'transparent'}`,
+                            color: client.status === 'archived' ? '#94A3B8' : txt.muted,
                           }}>
-                          <Square className="h-3.5 w-3.5" />
+                          <Archive className="h-3.5 w-3.5" />
                         </button>
                       </>
                     )}
 
-                    {/* Expand toggle */}
                     <button
                       onClick={() => setExpanded(isExpanded ? null : client.slug)}
                       className="p-2 rounded-lg transition-all"
                       style={{ color: txt.muted, background: txt.inputBg }}>
-                      {isExpanded
-                        ? <ChevronUp className="h-3.5 w-3.5" />
-                        : <ChevronDown className="h-3.5 w-3.5" />
-                      }
+                      {isExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
                     </button>
                   </div>
                 </div>
 
-                {/* Mobile: status + retainer row */}
+                {/* Mobile status row */}
                 <div className="flex items-center gap-2 mt-2 md:hidden">
                   <StatusBadge status={client.status} />
-                  <RetainerBadge status={client.retainer_status} />
-                  <span className="text-[11px]" style={{ color: txt.muted }}>{fmtFull(client.monthly_amount)}/mo</span>
+                  {monthly > 0 && (
+                    <span className="text-[11px]" style={{ color: txt.muted }}>
+                      R{Math.round(monthly).toLocaleString('en-ZA')}/mo
+                    </span>
+                  )}
                 </div>
+
+                {/* Pause message banner */}
+                {isPaused && msg && (
+                  <div className="mt-3 px-3 py-2 rounded-lg flex items-start gap-2"
+                    style={{ background: 'rgba(251,191,36,0.06)', border: '1px solid rgba(251,191,36,0.15)' }}>
+                    <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" style={{ color: '#FBBF24' }} />
+                    <p className="text-[11px]" style={{ color: '#FBBF24' }}>{msg}</p>
+                  </div>
+                )}
               </div>
 
-              {/* Expanded detail */}
+              {/* ── Expanded detail ── */}
               {isExpanded && (
                 <div className="px-5 pb-4 space-y-3" style={{ borderTop: `1px solid ${txt.divider}` }}>
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-3 pt-4">
                     {[
-                      { label: 'Slug',         value: client.slug },
-                      { label: 'Hostname',     value: client.mac_hostname || 'unknown' },
-                      { label: 'Last Heartbeat', value: client.last_heartbeat ? new Date(client.last_heartbeat).toLocaleString() : 'never' },
-                      { label: 'Status Since', value: client.status_changed_at ? new Date(client.status_changed_at).toLocaleString() : 'unknown' },
-                      { label: 'Changed By',   value: client.status_changed_by || 'system' },
-                      { label: 'Monthly',      value: fmtFull(client.monthly_amount) },
+                      { label: 'Slug',           value: client.slug },
+                      { label: 'Monthly Retainer', value: monthly > 0 ? `R${Math.round(monthly).toLocaleString('en-ZA')}` : 'Not set' },
+                      { label: 'Platform',       value: client.profile?.current_project?.platform_url || 'Unknown' },
+                      { label: 'Phase',          value: client.profile?.current_project?.phase || 'Unknown' },
+                      { label: 'Last Updated',   value: client.updated_at ? timeSince(client.updated_at) : 'unknown' },
+                      { label: 'Emails',         value: client.email_addresses?.join(', ') || 'None' },
                     ].map(f => (
                       <div key={f.label}>
                         <p className="text-[9px] uppercase tracking-widest mb-0.5" style={{ color: txt.label }}>{f.label}</p>
-                        <p className="text-[12px] font-medium break-all" style={{ color: txt.body }}>{f.value}</p>
+                        <p className="text-[11px] font-medium break-all" style={{ color: txt.body }}>{f.value}</p>
                       </div>
                     ))}
                   </div>
-                  {client.notes && (
-                    <p className="text-[11px] pt-1" style={{ color: txt.muted, borderTop: `1px solid ${txt.divider}` }}>
-                      {client.notes}
-                    </p>
-                  )}
 
                   {/* Kill switch legend */}
                   <div className="flex gap-4 pt-2" style={{ borderTop: `1px solid ${txt.divider}` }}>
                     {[
-                      { icon: Play,  color: '#4ADE80', label: 'Active — all agents run' },
-                      { icon: Pause, color: '#FBBF24', label: 'Paused — outbound stops, monitoring stays' },
-                      { icon: Square, color: '#F87171', label: 'Stopped — all agents off' },
+                      { icon: Play,    color: '#4ADE80', label: 'Active — all systems running' },
+                      { icon: Pause,   color: '#FBBF24', label: 'Paused — web app blocked, agents skip' },
+                      { icon: Archive, color: '#94A3B8', label: 'Archived — end of engagement' },
                     ].map(({ icon: Icon, color, label }) => (
                       <div key={label} className="flex items-center gap-1.5">
                         <Icon className="h-3 w-3 shrink-0" style={{ color }} />
@@ -374,6 +400,69 @@ export default function ClientsPage() {
           Refresh
         </button>
       </div>
+
+      {/* ── Pause confirmation modal ── */}
+      {pauseTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)' }}
+          onClick={e => { if (e.target === e.currentTarget) setPauseTarget(null); }}>
+          <div className="w-full max-w-md p-6 rounded-2xl space-y-4"
+            style={{
+              background: isDark ? 'rgba(15,15,20,0.95)' : '#fff',
+              border: '1px solid rgba(251,191,36,0.3)',
+              boxShadow: '0 24px 80px rgba(0,0,0,0.5)',
+            }}>
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-xl flex items-center justify-center"
+                style={{ background: 'rgba(251,191,36,0.12)', border: '1px solid rgba(251,191,36,0.2)' }}>
+                <Pause className="h-5 w-5" style={{ color: '#FBBF24' }} />
+              </div>
+              <div>
+                <p className="text-[14px] font-semibold" style={{ color: txt.head }}>
+                  Pause {clients.find(c => c.slug === pauseTarget)?.name}?
+                </p>
+                <p className="text-[11px]" style={{ color: txt.muted }}>
+                  Web app will show maintenance page immediately
+                </p>
+              </div>
+            </div>
+
+            <div>
+              <label className="text-[10px] uppercase tracking-widest mb-1.5 block" style={{ color: txt.label }}>
+                Reason shown to client (optional)
+              </label>
+              <input
+                autoFocus
+                value={pauseReason}
+                onChange={e => setPauseReason(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') confirmPause(); if (e.key === 'Escape') setPauseTarget(null); }}
+                placeholder="e.g. Invoice overdue — please contact us to restore access"
+                className="w-full text-[12px] px-3 py-2.5 rounded-xl outline-none"
+                style={{
+                  background: txt.inputBg,
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  color: txt.body,
+                }}
+              />
+            </div>
+
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={() => setPauseTarget(null)}
+                className="px-4 py-2 rounded-xl text-[12px] font-medium"
+                style={{ background: txt.inputBg, color: txt.muted }}>
+                Cancel
+              </button>
+              <button
+                onClick={confirmPause}
+                className="px-4 py-2 rounded-xl text-[12px] font-medium"
+                style={{ background: 'rgba(251,191,36,0.15)', color: '#FBBF24', border: '1px solid rgba(251,191,36,0.3)' }}>
+                Pause Client
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );
