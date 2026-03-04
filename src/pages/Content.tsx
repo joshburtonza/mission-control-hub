@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { Copy, Check, Youtube, Linkedin, Video, FileText } from 'lucide-react';
+import { Copy, Check, Youtube, Linkedin, Video, FileText, ChevronLeft, ChevronRight } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useSwipe } from '@/hooks/use-swipe';
 
@@ -55,14 +55,24 @@ export default function Content() {
   const [copiedId, setCopiedId]   = useState<string | null>(null);
   const [loading, setLoading]     = useState(true);
   const [scripts, setScripts]     = useState<Script[]>([]);
+  const [dayOffset, setDayOffset] = useState(0); // 0 = today, -1 = yesterday, etc.
 
-  const today        = useMemo(() => new Date(), []);
-  const todayStart   = useMemo(() => startOfLocalDay(today), [today]);
-  const tomorrowStart = useMemo(() => {
-    const t = new Date(todayStart);
+  const today = useMemo(() => new Date(), []);
+
+  const selectedDay = useMemo(() => {
+    const d = new Date(today);
+    d.setDate(d.getDate() + dayOffset);
+    return d;
+  }, [today, dayOffset]);
+
+  const selectedDayStart = useMemo(() => startOfLocalDay(selectedDay), [selectedDay]);
+  const selectedDayEnd = useMemo(() => {
+    const t = new Date(selectedDayStart);
     t.setDate(t.getDate() + 1);
     return t;
-  }, [todayStart]);
+  }, [selectedDayStart]);
+
+  const isToday = dayOffset === 0;
 
   useEffect(() => {
     let cancelled = false;
@@ -73,8 +83,8 @@ export default function Content() {
         .from('tasks')
         .select('id,title,description,tags,created_at,created_by')
         .eq('created_by', 'Video Bot')
-        .gte('created_at', todayStart.toISOString())
-        .lt('created_at', tomorrowStart.toISOString())
+        .gte('created_at', selectedDayStart.toISOString())
+        .lt('created_at', selectedDayEnd.toISOString())
         .order('created_at', { ascending: false });
 
       if (cancelled) return;
@@ -110,7 +120,7 @@ export default function Content() {
     fetchScripts();
 
     const channel = supabase
-      .channel('content_scripts_today')
+      .channel(`content_scripts_${dayOffset}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, payload => {
         const row: any = payload.new || payload.old;
         const tags = row?.tags;
@@ -124,7 +134,7 @@ export default function Content() {
       cancelled = true;
       supabase.removeChannel(channel);
     };
-  }, [todayStart, tomorrowStart]);
+  }, [selectedDayStart, selectedDayEnd, dayOffset]);
 
   const tabIndex = TABS.indexOf(activeTab);
 
@@ -155,14 +165,14 @@ export default function Content() {
 
   const headline = useMemo(() => {
     if (loading) return 'Loading scripts…';
-    if (!scripts.length) return 'No scripts generated yet today';
+    if (!scripts.length) return isToday ? 'No scripts generated yet today' : 'No scripts for this day';
     const tiktokCount = scripts.filter(s => s.platform === 'tiktok').length;
     const ytCount     = scripts.filter(s => s.platform === 'youtube').length;
     const parts = [];
     if (tiktokCount) parts.push(`${tiktokCount} TikToks`);
     if (ytCount)     parts.push(`${ytCount} YouTube`);
     return `${parts.join(' + ')} ready`;
-  }, [loading, scripts]);
+  }, [loading, scripts, isToday]);
 
   return (
     <div className="space-y-4 pb-24 sm:pb-6">
@@ -174,6 +184,40 @@ export default function Content() {
           4 TikToks daily · YouTube Mon + Thu · {headline}
           {lastGeneratedAt ? ` · last generated ${timeSince(new Date(lastGeneratedAt).toISOString())}` : ''}
         </p>
+      </div>
+
+      {/* Day navigation */}
+      <div className="flex items-center justify-between">
+        <button
+          onClick={() => setDayOffset(o => Math.max(o - 1, -6))}
+          className="p-1.5 rounded-lg transition-colors"
+          style={{ color: dayOffset <= -6 ? 'var(--tc-15)' : 'var(--tc-50)', background: 'var(--s-card)' }}
+          disabled={dayOffset <= -6}
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </button>
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium" style={{ color: 'var(--tc-70)' }}>
+            {isToday ? 'Today' : dayOffset === -1 ? 'Yesterday' : formatDayLabel(selectedDay)}
+          </span>
+          {!isToday && (
+            <button
+              onClick={() => setDayOffset(0)}
+              className="text-[10px] px-2 py-0.5 rounded-full"
+              style={{ background: `${B}12`, color: `${B}cc`, border: `1px solid ${B}25` }}
+            >
+              Today
+            </button>
+          )}
+        </div>
+        <button
+          onClick={() => setDayOffset(o => Math.min(o + 1, 0))}
+          className="p-1.5 rounded-lg transition-colors"
+          style={{ color: isToday ? 'var(--tc-15)' : 'var(--tc-50)', background: 'var(--s-card)' }}
+          disabled={isToday}
+        >
+          <ChevronRight className="h-4 w-4" />
+        </button>
       </div>
 
       {/* Tabs */}
@@ -197,7 +241,7 @@ export default function Content() {
       <div className="space-y-3" {...swipeHandlers}>
         <div className="flex items-center gap-2">
           <span className="text-[10px] uppercase tracking-wider" style={{ color: 'var(--tc-30)' }}>
-            Today — {formatDayLabel(today)}
+            {isToday ? 'Today' : formatDayLabel(selectedDay)}
           </span>
           <div className="flex-1 h-px" style={{ background: 'var(--s-divider)' }} />
           <Badge className="text-[9px]" style={{ background: `${B}12`, color: `${B}cc`, border: `1px solid ${B}25` }}>
@@ -251,9 +295,19 @@ export default function Content() {
           <div className="flex flex-col items-center justify-center py-16 gap-2" style={{ border: '1px solid var(--s-divider)', borderRadius: '16px' }}>
             <FileText className="h-8 w-8" style={{ color: 'var(--tc-15)' }} />
             <p className="text-sm" style={{ color: 'var(--tc-30)' }}>
-              {activeTab === 'YouTube' ? 'No YouTube scripts generated today' : 'No TikTok scripts generated today yet'}
+              {activeTab === 'YouTube'
+                ? `No YouTube scripts for ${isToday ? 'today' : formatDayLabel(selectedDay)}`
+                : `No TikTok scripts for ${isToday ? 'today' : formatDayLabel(selectedDay)}`}
             </p>
-            <p className="text-xs" style={{ color: 'var(--tc-20)' }}>Next scheduled generation is 5am.</p>
+            {isToday ? (
+              <p className="text-xs" style={{ color: 'var(--tc-20)' }}>
+                Generation failed today. Use ← to see previous days.
+              </p>
+            ) : (
+              <p className="text-xs" style={{ color: 'var(--tc-20)' }}>
+                No scripts were generated on this day.
+              </p>
+            )}
           </div>
         )}
       </div>
