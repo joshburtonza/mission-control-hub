@@ -408,6 +408,11 @@ export default function Finances() {
   const [showLogModal, setShowLogModal] = useState(false);
   const [expandedMonth, setExpandedMonth] = useState<string | null>(null);
   const [txAcctFilter, setTxAcctFilter] = useState<'all' | 'business' | 'personal'>('all');
+  // Staff can only see business transactions — never personal
+  const txFilterOptions: ('all' | 'business' | 'personal')[] = isOwner
+    ? ['all', 'business', 'personal']
+    : ['business'];
+  const effectiveTxFilter = isOwner ? txAcctFilter : 'business';
 
   // Cast for tables not yet in generated types
   const db = supabase as any;
@@ -804,8 +809,8 @@ export default function Finances() {
         </div>
       </div>
 
-      {/* ══ Row 2b: Revenue vs Business Costs ══ */}
-      {(() => {
+      {/* ══ Row 2b: Revenue vs Business Costs — owner only (exposes drawings) ══ */}
+      {isOwner && (() => {
         const incExpData = months.map(m => ({
           month: fmtMonthLabel(m),
           income:   entries.filter(e => e.month === m).reduce((s, e) => s + e.amount, 0),
@@ -855,8 +860,8 @@ export default function Finances() {
         );
       })()}
 
-      {/* ══ Row 3: Net Position + Sajonix Balance ══ */}
-      <div className="grid md:grid-cols-2 gap-4">
+      {/* ══ Row 3: Net Position + Sajonix Balance — owner only ══ */}
+      {isOwner && <div className="grid md:grid-cols-2 gap-4">
 
         {/* Net Position */}
         <div className="p-6" style={card}>
@@ -940,7 +945,7 @@ export default function Finances() {
             )}
           </div>
         </div>
-      </div>
+      </div>}
 
       {/* ══ Row 4: This month entries + Debt Paydown ══ */}
       <div className="grid md:grid-cols-2 gap-4">
@@ -1476,10 +1481,11 @@ export default function Finances() {
       {/* ══ Row 7: Monthly Transaction Log ══ */}
       {txnsTableExists ? (
         (() => {
-          // Filter by account type
-          const visibleTxns = txAcctFilter === 'all'
-            ? txns
-            : txns.filter(t => (t.account_type || 'business') === txAcctFilter);
+          // Filter by account type — staff can NEVER see personal transactions
+          const safeTxns = isOwner ? txns : txns.filter(t => (t.account_type || 'business') === 'business');
+          const visibleTxns = effectiveTxFilter === 'all'
+            ? safeTxns
+            : safeTxns.filter(t => (t.account_type || 'business') === effectiveTxFilter);
 
           if (visibleTxns.length === 0) return (
             <div style={card}>
@@ -1490,12 +1496,12 @@ export default function Finances() {
                   <p className="text-[11px] mt-0.5" style={{ color: txt.muted }}>No transactions logged yet</p>
                 </div>
                 <div className="flex gap-1.5">
-                  {(['all', 'business', 'personal'] as const).map(f => (
+                  {txFilterOptions.map(f => (
                     <button key={f} onClick={() => setTxAcctFilter(f)}
                       className="text-[10px] px-2.5 py-1 rounded-full capitalize"
-                      style={{ border: 'none', cursor: 'pointer', fontWeight: txAcctFilter === f ? 700 : 400,
-                        background: txAcctFilter === f ? B1 : (isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)'),
-                        color: txAcctFilter === f ? '#fff' : txt.muted }}>
+                      style={{ border: 'none', cursor: 'pointer', fontWeight: effectiveTxFilter === f ? 700 : 400,
+                        background: effectiveTxFilter === f ? B1 : (isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)'),
+                        color: effectiveTxFilter === f ? '#fff' : txt.muted }}>
                       {f}
                     </button>
                   ))}
@@ -1531,12 +1537,12 @@ export default function Finances() {
                   <p className="text-[11px] mt-0.5" style={{ color: txt.muted }}>{visibleTxns.length} transaction{visibleTxns.length !== 1 ? 's' : ''}</p>
                 </div>
                 <div className="flex gap-1.5">
-                  {(['all', 'business', 'personal'] as const).map(f => (
+                  {txFilterOptions.map(f => (
                     <button key={f} onClick={() => setTxAcctFilter(f)}
                       className="text-[10px] px-2.5 py-1 rounded-full capitalize"
-                      style={{ border: 'none', cursor: 'pointer', fontWeight: txAcctFilter === f ? 700 : 400,
-                        background: txAcctFilter === f ? B1 : (isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)'),
-                        color: txAcctFilter === f ? '#fff' : txt.muted }}>
+                      style={{ border: 'none', cursor: 'pointer', fontWeight: effectiveTxFilter === f ? 700 : 400,
+                        background: effectiveTxFilter === f ? B1 : (isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)'),
+                        color: effectiveTxFilter === f ? '#fff' : txt.muted }}>
                       {f}
                     </button>
                   ))}
@@ -1645,19 +1651,21 @@ export default function Finances() {
       {/* Bottom spacer for FAB */}
       <div className="h-24 md:h-16" />
 
-      {/* ── Log Transaction FAB ── */}
-      <button
-        onClick={() => setShowLogModal(true)}
-        className="fixed bottom-20 right-6 md:bottom-6"
-        style={{ position: 'fixed', zIndex: 900, width: '52px', height: '52px', borderRadius: '50%', border: 'none', cursor: 'pointer', background: '#4ade80', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 24px rgba(74,222,128,0.5), 0 0 0 1px rgba(74,222,128,0.3)', transition: 'transform 0.15s' }}
-        onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.transform = 'scale(1.08)'; }}
-        onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.transform = 'scale(1)'; }}
-        aria-label="Log transaction"
-      >
-        <Plus size={22} strokeWidth={2.5} />
-      </button>
+      {/* ── Log Transaction FAB — owner only ── */}
+      {isOwner && (
+        <button
+          onClick={() => setShowLogModal(true)}
+          className="fixed bottom-20 right-6 md:bottom-6"
+          style={{ position: 'fixed', zIndex: 900, width: '52px', height: '52px', borderRadius: '50%', border: 'none', cursor: 'pointer', background: '#4ade80', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 24px rgba(74,222,128,0.5), 0 0 0 1px rgba(74,222,128,0.3)', transition: 'transform 0.15s' }}
+          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.transform = 'scale(1.08)'; }}
+          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.transform = 'scale(1)'; }}
+          aria-label="Log transaction"
+        >
+          <Plus size={22} strokeWidth={2.5} />
+        </button>
+      )}
 
-      {showLogModal && (
+      {isOwner && showLogModal && (
         <LogEventModal isDark={isDark} onClose={() => setShowLogModal(false)} onSaved={() => load()} />
       )}
 
