@@ -28,7 +28,7 @@ const PLATFORM_CONFIG = {
   blog:     { label: 'Blog',     icon: FileText },
 } as const;
 
-const TABS = ['TikTok', 'YouTube'] as const;
+const TABS = ['TikTok', 'YouTube', 'LinkedIn'] as const;
 type Tab = typeof TABS[number];
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -81,9 +81,9 @@ export default function Content() {
       const { data, error } = await supabase
         .from('tasks')
         .select('id,title,description,tags,created_at,created_by')
-        .eq('created_by', 'Video Bot')
+        .in('created_by', ['Video Bot', 'Content Bot'])
         .order('created_at', { ascending: false })
-        .limit(200);
+        .limit(300);
 
       if (cancelled) return;
 
@@ -95,13 +95,14 @@ export default function Content() {
       }
 
       const mapped: Script[] = (data || [])
-        .filter(row => Array.isArray(row.tags) && (row.tags.includes('tiktok') || row.tags.includes('youtube')))
+        .filter(row => Array.isArray(row.tags) && (row.tags.includes('tiktok') || row.tags.includes('youtube') || row.tags.includes('linkedin')))
         .map(row => {
           const tags = row.tags || [];
-          const platform: Script['platform'] = tags.includes('youtube') ? 'youtube' : 'tiktok';
+          const platform: Script['platform'] = tags.includes('youtube') ? 'youtube' : tags.includes('linkedin') ? 'linkedin' : 'tiktok';
           const cleanTitle = row.title
             .replace(/^\[TikTok\]\s*/i, '')
-            .replace(/^\[YouTube\]\s*/i, '');
+            .replace(/^\[YouTube\]\s*/i, '')
+            .replace(/^\[LinkedIn\]\s*/i, '');
           return {
             id: row.id,
             title: cleanTitle,
@@ -129,7 +130,7 @@ export default function Content() {
       .channel('content_scripts_all')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, payload => {
         const row: any = payload.new || payload.old;
-        if (row?.created_by === 'Video Bot') fetchAll();
+        if (row?.created_by === 'Video Bot' || row?.created_by === 'Content Bot') fetchAll();
       })
       .subscribe();
 
@@ -141,12 +142,13 @@ export default function Content() {
 
   // Group scripts by local day → get available days
   const availableDays = useMemo(() => {
-    const dayMap = new Map<string, { tiktoks: number; youtubes: number }>();
+    const dayMap = new Map<string, { tiktoks: number; youtubes: number; linkedins: number }>();
     for (const s of allScripts) {
       const key = toLocalDateKey(s.generatedAt);
-      const entry = dayMap.get(key) || { tiktoks: 0, youtubes: 0 };
+      const entry = dayMap.get(key) || { tiktoks: 0, youtubes: 0, linkedins: 0 };
       if (s.platform === 'tiktok') entry.tiktoks++;
       if (s.platform === 'youtube') entry.youtubes++;
+      if (s.platform === 'linkedin') entry.linkedins++;
       dayMap.set(key, entry);
     }
     // Sort newest first
@@ -178,8 +180,9 @@ export default function Content() {
   };
 
   const filteredScripts = useMemo(() => {
-    if (activeTab === 'TikTok')  return dayScripts.filter(s => s.platform === 'tiktok');
-    if (activeTab === 'YouTube') return dayScripts.filter(s => s.platform === 'youtube');
+    if (activeTab === 'TikTok')   return dayScripts.filter(s => s.platform === 'tiktok');
+    if (activeTab === 'YouTube')  return dayScripts.filter(s => s.platform === 'youtube');
+    if (activeTab === 'LinkedIn') return dayScripts.filter(s => s.platform === 'linkedin');
     return [];
   }, [activeTab, dayScripts]);
 
@@ -200,7 +203,7 @@ export default function Content() {
       <div>
         <h1 className="text-xl font-bold" style={{ color: 'var(--tc-85)' }}>Content</h1>
         <p className="text-xs mt-1" style={{ color: 'var(--tc-35)' }}>
-          4 TikToks daily · YouTube Mon + Thu · {headline}
+          4 TikToks + 3 LinkedIn daily · YouTube Mon + Thu · {headline}
         </p>
       </div>
 
@@ -232,6 +235,7 @@ export default function Content() {
                 const parts = [];
                 if (day.tiktoks) parts.push(`${day.tiktoks} TikTok${day.tiktoks > 1 ? 's' : ''}`);
                 if (day.youtubes) parts.push(`${day.youtubes} YT`);
+                if (day.linkedins) parts.push(`${day.linkedins} LI`);
                 return (
                   <SelectItem
                     key={day.key}
@@ -273,7 +277,7 @@ export default function Content() {
           </span>
           <div className="flex-1 h-px" style={{ background: 'var(--s-divider)' }} />
           <Badge className="text-[9px]" style={{ background: `${B}12`, color: `${B}cc`, border: `1px solid ${B}25` }}>
-            {activeTab === 'YouTube' ? `${filteredScripts.length} YouTube` : `${filteredScripts.length} TikToks`}
+            {activeTab === 'YouTube' ? `${filteredScripts.length} YouTube` : activeTab === 'LinkedIn' ? `${filteredScripts.length} LinkedIn` : `${filteredScripts.length} TikToks`}
           </Badge>
         </div>
 
@@ -327,7 +331,9 @@ export default function Content() {
                 ? 'No content scripts found'
                 : activeTab === 'YouTube'
                   ? `No YouTube scripts for ${formatDayLabel(selectedDay)}`
-                  : `No TikTok scripts for ${formatDayLabel(selectedDay)}`}
+                  : activeTab === 'LinkedIn'
+                    ? `No LinkedIn posts for ${formatDayLabel(selectedDay)}`
+                    : `No TikTok scripts for ${formatDayLabel(selectedDay)}`}
             </p>
             {availableDays.length > 0 && (
               <p className="text-xs" style={{ color: 'var(--tc-20)' }}>
