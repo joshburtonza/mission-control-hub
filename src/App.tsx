@@ -91,6 +91,7 @@ function AppRoutes() {
           <Route path="/research" element={<ResearchPage />} />
           <Route path="/vanta" element={<VantaPage />} />
           <Route path="/audit" element={<AuditLog />} />
+          <Route path="/data-export" element={<DataExportPage />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </DashboardLayout>

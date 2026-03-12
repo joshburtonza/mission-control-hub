@@ -844,8 +844,8 @@ function LeadTable({ leads, logSteps, onSelect, sortKey: _sortKey, sortDir: _sor
   sortDir?: string;
   onSort?: (key: string) => void;
 }) {
-  const sortKey = _sortKey || 'quality_score';
-  const sortDir = _sortDir || 'desc';
+  const sortKey: SortKey = _sortKey as SortKey || 'quality_score';
+  const sortDir: SortDir = _sortDir as SortDir || 'desc';
   const onSort = _onSort || (() => {});
   if (leads.length === 0) {
     return (
