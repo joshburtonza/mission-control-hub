@@ -50,8 +50,8 @@ export default function Agents() {
     if (!cRes.error && cRes.data) {
       const map: Record<string, boolean> = {};
       for (const row of cRes.data) {
-        try { map[row.key] = JSON.parse(row.value ?? 'true'); }
-        catch { map[row.key] = row.value !== 'false'; }
+        try { map[row.key] = JSON.parse(String(row.value ?? 'true')); }
+        catch { map[row.key] = String(row.value) !== 'false'; }
       }
       setAgentEnabled(map);
     }

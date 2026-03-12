@@ -2096,7 +2096,7 @@ function SourceGroup({ source, leads, openedLeads, onSelect }: {
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 {openedLeads.has(lead.id) && lead.last_contacted_at && (
-                  <Eye className="h-3 w-3" style={{ color: '#4ade80', filter: 'drop-shadow(0 0 4px #4ade8088)' }} title="Opened email" />
+                  <Eye className="h-3 w-3" style={{ color: '#4ade80', filter: 'drop-shadow(0 0 4px #4ade8088)' }} />
                 )}
                 {lead.reply_received_at && <Mail className="h-3 w-3" style={{ color: B }} />}
                 <StatusPill status={lead.status} />
