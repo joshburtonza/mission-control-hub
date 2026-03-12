@@ -836,11 +836,17 @@ function KanbanBoard({ leads, logSteps, openedLeads, onSelect, sortKey, sortDir 
 
 // ── LeadTable (kept for reference, unused) ────────────────────────────────────
 
-function LeadTable({ leads, logSteps, onSelect }: {
+function LeadTable({ leads, logSteps, onSelect, sortKey: _sortKey, sortDir: _sortDir, onSort: _onSort }: {
   leads: Lead[];
   logSteps: Record<string, number[]>;
   onSelect: (lead: Lead) => void;
+  sortKey?: string;
+  sortDir?: string;
+  onSort?: (key: string) => void;
 }) {
+  const sortKey = _sortKey || 'quality_score';
+  const sortDir = _sortDir || 'desc';
+  const onSort = _onSort || (() => {});
   if (leads.length === 0) {
     return (
       <div style={{ ...CARD, borderRadius: '20px' }} className="flex flex-col items-center justify-center py-16 gap-3">
