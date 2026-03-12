@@ -1318,6 +1318,138 @@ export type Database = {
         }
         Relationships: []
       }
+      vanta_leads: {
+        Row: {
+          avg_comments: number | null
+          avg_likes: number | null
+          bio_text: string | null
+          business_name: string | null
+          discovered_at: string | null
+          email: string | null
+          email_deliverable: boolean | null
+          email_domain_type: string | null
+          email_queue_id: string | null
+          email_verified: boolean | null
+          engagement_rate: number | null
+          follower_count: number | null
+          following_count: number | null
+          full_name: string | null
+          id: string
+          ig_comment_sent_at: string | null
+          ig_dm_sent_at: string | null
+          ig_dm_text: string | null
+          in_south_africa: boolean | null
+          instagram_active: boolean | null
+          instagram_handle: string | null
+          is_business_account: boolean | null
+          last_contacted_at: string | null
+          last_post_at: string | null
+          last_reply_at: string | null
+          location_city: string | null
+          location_raw: string | null
+          outreach_notes: string | null
+          outreach_status: string
+          phone: string | null
+          post_count: number | null
+          profile_url: string | null
+          quality_breakdown: Json | null
+          quality_score: number
+          quality_scored_at: string | null
+          source: string | null
+          source_hashtag: string | null
+          specialties: string[] | null
+          updated_at: string | null
+          website: string | null
+          website_live: boolean | null
+        }
+        Insert: {
+          avg_comments?: number | null
+          avg_likes?: number | null
+          bio_text?: string | null
+          business_name?: string | null
+          discovered_at?: string | null
+          email?: string | null
+          email_deliverable?: boolean | null
+          email_domain_type?: string | null
+          email_queue_id?: string | null
+          email_verified?: boolean | null
+          engagement_rate?: number | null
+          follower_count?: number | null
+          following_count?: number | null
+          full_name?: string | null
+          id?: string
+          ig_comment_sent_at?: string | null
+          ig_dm_sent_at?: string | null
+          ig_dm_text?: string | null
+          in_south_africa?: boolean | null
+          instagram_active?: boolean | null
+          instagram_handle?: string | null
+          is_business_account?: boolean | null
+          last_contacted_at?: string | null
+          last_post_at?: string | null
+          last_reply_at?: string | null
+          location_city?: string | null
+          location_raw?: string | null
+          outreach_notes?: string | null
+          outreach_status?: string
+          phone?: string | null
+          post_count?: number | null
+          profile_url?: string | null
+          quality_breakdown?: Json | null
+          quality_score?: number
+          quality_scored_at?: string | null
+          source?: string | null
+          source_hashtag?: string | null
+          specialties?: string[] | null
+          updated_at?: string | null
+          website?: string | null
+          website_live?: boolean | null
+        }
+        Update: {
+          avg_comments?: number | null
+          avg_likes?: number | null
+          bio_text?: string | null
+          business_name?: string | null
+          discovered_at?: string | null
+          email?: string | null
+          email_deliverable?: boolean | null
+          email_domain_type?: string | null
+          email_queue_id?: string | null
+          email_verified?: boolean | null
+          engagement_rate?: number | null
+          follower_count?: number | null
+          following_count?: number | null
+          full_name?: string | null
+          id?: string
+          ig_comment_sent_at?: string | null
+          ig_dm_sent_at?: string | null
+          ig_dm_text?: string | null
+          in_south_africa?: boolean | null
+          instagram_active?: boolean | null
+          instagram_handle?: string | null
+          is_business_account?: boolean | null
+          last_contacted_at?: string | null
+          last_post_at?: string | null
+          last_reply_at?: string | null
+          location_city?: string | null
+          location_raw?: string | null
+          outreach_notes?: string | null
+          outreach_status?: string
+          phone?: string | null
+          post_count?: number | null
+          profile_url?: string | null
+          quality_breakdown?: Json | null
+          quality_score?: number
+          quality_scored_at?: string | null
+          source?: string | null
+          source_hashtag?: string | null
+          specialties?: string[] | null
+          updated_at?: string | null
+          website?: string | null
+          website_live?: boolean | null
+        }
+        Relationships: []
+      }
       whatsapp_messages: {
         Row: {
           chat_id: string
@@ -1357,6 +1489,51 @@ export type Database = {
           outbound_text?: string | null
           sender_name?: string | null
           skipped?: boolean | null
+        }
+        Relationships: []
+      }
+      work_sessions: {
+        Row: {
+          claude_session_id: string | null
+          created_at: string | null
+          duration_mins: number | null
+          end_reason: string | null
+          ended_at: string | null
+          id: string
+          machine: string | null
+          paused_mins: number | null
+          prompt_count: number | null
+          session_id: string
+          started_at: string | null
+          work_date: string | null
+        }
+        Insert: {
+          claude_session_id?: string | null
+          created_at?: string | null
+          duration_mins?: number | null
+          end_reason?: string | null
+          ended_at?: string | null
+          id?: string
+          machine?: string | null
+          paused_mins?: number | null
+          prompt_count?: number | null
+          session_id: string
+          started_at?: string | null
+          work_date?: string | null
+        }
+        Update: {
+          claude_session_id?: string | null
+          created_at?: string | null
+          duration_mins?: number | null
+          end_reason?: string | null
+          ended_at?: string | null
+          id?: string
+          machine?: string | null
+          paused_mins?: number | null
+          prompt_count?: number | null
+          session_id?: string
+          started_at?: string | null
+          work_date?: string | null
         }
         Relationships: []
       }
