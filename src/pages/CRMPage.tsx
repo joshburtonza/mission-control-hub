@@ -836,11 +836,17 @@ function KanbanBoard({ leads, logSteps, openedLeads, onSelect, sortKey, sortDir 
 
 // ── LeadTable (kept for reference, unused) ────────────────────────────────────
 
-function LeadTable({ leads, logSteps, onSelect }: {
+function LeadTable({ leads, logSteps, onSelect, sortKey: _sortKey, sortDir: _sortDir, onSort: _onSort }: {
   leads: Lead[];
   logSteps: Record<string, number[]>;
   onSelect: (lead: Lead) => void;
+  sortKey?: string;
+  sortDir?: string;
+  onSort?: (key: string) => void;
 }) {
+  const sortKey: SortKey = _sortKey as SortKey || 'quality_score';
+  const sortDir: SortDir = _sortDir as SortDir || 'desc';
+  const onSort = _onSort || (() => {});
   if (leads.length === 0) {
     return (
       <div style={{ ...CARD, borderRadius: '20px' }} className="flex flex-col items-center justify-center py-16 gap-3">
@@ -2031,7 +2037,7 @@ function IndustryGroup({ name, leads, openedLeads, onSelect }: {
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 {openedLeads.has(lead.id) && lead.last_contacted_at && (
-                  <Eye className="h-3 w-3" style={{ color: '#4ade80', filter: 'drop-shadow(0 0 4px #4ade8088)' }} title="Opened email" />
+                  <Eye className="h-3 w-3" style={{ color: '#4ade80', filter: 'drop-shadow(0 0 4px #4ade8088)' }} />
                 )}
                 {lead.quality_score > 0 && <ScoreBadge score={lead.quality_score} />}
                 <StatusPill status={lead.status} />
@@ -2090,7 +2096,7 @@ function SourceGroup({ source, leads, openedLeads, onSelect }: {
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 {openedLeads.has(lead.id) && lead.last_contacted_at && (
-                  <Eye className="h-3 w-3" style={{ color: '#4ade80', filter: 'drop-shadow(0 0 4px #4ade8088)' }} title="Opened email" />
+                  <Eye className="h-3 w-3" style={{ color: '#4ade80', filter: 'drop-shadow(0 0 4px #4ade8088)' }} />
                 )}
                 {lead.reply_received_at && <Mail className="h-3 w-3" style={{ color: B }} />}
                 <StatusPill status={lead.status} />

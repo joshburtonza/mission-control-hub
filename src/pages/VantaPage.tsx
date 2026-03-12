@@ -97,7 +97,7 @@ export default function VantaPage() {
 
   const loadLeads = useCallback(async () => {
     setLoading(true);
-    const { data } = await supabase
+    const { data } = await (supabase as any)
       .from('vanta_leads')
       .select(`
         id, instagram_handle, full_name, business_name, email, location_city,
@@ -108,7 +108,7 @@ export default function VantaPage() {
       .order('quality_score', { ascending: false })
       .order('discovered_at', { ascending: false })
       .limit(500);
-    setLeads(data as VantaLead[] || []);
+    setLeads((data as VantaLead[]) || []);
     setLastRefresh(new Date());
     setLoading(false);
   }, []);

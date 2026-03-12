@@ -24,6 +24,7 @@ import CSMPage from "./pages/CSMPage";
 import DocsPage from "./pages/DocsPage";
 import ContractsPage from "./pages/ContractsPage";
 import SkillsPage from "./pages/SkillsPage";
+import DataExportPage from "./pages/DataExportPage";
 import NotFound from "./pages/NotFound";
 
 // ── Auth guard — wraps all protected routes ───────────────────────────────────
@@ -90,6 +91,7 @@ function AppRoutes() {
           <Route path="/research" element={<ResearchPage />} />
           <Route path="/vanta" element={<VantaPage />} />
           <Route path="/audit" element={<AuditLog />} />
+          <Route path="/data-export" element={<DataExportPage />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </DashboardLayout>
