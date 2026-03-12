@@ -24,6 +24,7 @@ import CSMPage from "./pages/CSMPage";
 import DocsPage from "./pages/DocsPage";
 import ContractsPage from "./pages/ContractsPage";
 import SkillsPage from "./pages/SkillsPage";
+import DataExportPage from "./pages/DataExportPage";
 import NotFound from "./pages/NotFound";
 
 // ── Auth guard — wraps all protected routes ───────────────────────────────────
